@@ -1,22 +1,318 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>muzzard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.1.1",
-    "react/": "https://aistudiocdn.com/react@^19.1.1/",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/"
   }
 }
 </script>
 </head>
-  <body class="bg-[#585858]">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+<body class="bg-[#585858]">
+    <div class="container mx-auto max-w-6xl">
+        <header class="bg-black text-gray-400 text-xs py-1 px-2 border-b-4 border-[#3a3a3a]">
+            <div class="flex justify-end items-center space-x-4">
+                <span>MUZZARD Network:</span>
+                <a href="#" data-page="home" class="text-white underline hover:text-amber-400">Home</a>
+                <a href="#" data-page="about" class="text-white underline hover:text-amber-400">About</a>
+                <a href="#" data-page="contact" class="text-white underline hover:text-amber-400">Contact</a>
+                <a href="#" data-page="help" class="text-white underline hover:text-amber-400">FAQ</a>
+            </div>
+        </header>
+        <main class="grid grid-cols-1 md:grid-cols-[200px_1fr_250px] gap-4 pt-4 px-2 md:px-0">
+            <aside class="text-white">
+                <a href="#" data-page="home" class="block bg-black p-2 border-2 border-gray-400 font-black text-center hover:border-amber-400 transition-colors">
+                    <div class="text-xl tracking-tighter">muzzard</div>
+                    <div class="text-[10px] text-gray-400">IMAGE DOWNLOADER</div>
+                </a>
+                <div class="mt-8">
+                    <h3 class="text-sm font-bold tracking-wider text-gray-300">TOOLS</h3>
+                    <ul class="mt-2 space-y-2 text-xs">
+                        <li class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            <a href="#" data-page="home" class="text-amber-400 underline hover:text-amber-300">Batch Download</a>
+                        </li>
+                        <li class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                            </svg>
+                            <a href="#" data-page="help" class="text-amber-400 underline hover:text-amber-300">Supported Sites</a>
+                        </li>
+                        <li class="flex items-center">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <a href="#" data-page="about" class="text-amber-400 underline hover:text-amber-300">About Muzzard</a>
+                        </li>
+                    </ul>
+                </div>
+            </aside>
+
+            <div id="page-container">
+                <section id="page-home" class="bg-[#fcc603] p-6 text-black font-serif border-t-4 border-black">
+                    <h1 class="text-3xl font-extrabold text-red-800 font-sans" style="text-shadow: 1px 1px 0 #000">muzzard</h1>
+                    <p class="font-bold font-sans">By Team Muzzard</p>
+                    <p class="text-sm font-sans mb-6 text-gray-800">A Page 2 Joint</p>
+
+                    <div class="space-y-4 text-sm leading-relaxed">
+                        <p>
+                            Welcome to Muzzard, the premier old-school utility for grabbing images. Paste your direct image URLs into the box below. We're talking Imgur links, direct file links, you name it. One URL per line.
+                        </p>
+                        
+                        <textarea id="urls-textarea" placeholder="e.g. https://i.imgur.com/k33kw88.jpeg&#10;https://i.imgur.com/example.png" class="w-full h-48 p-2 border-2 border-black bg-[#fffde7] text-black font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-700"></textarea>
+
+                        <button id="download-btn" class="px-6 py-2 bg-red-800 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-red-900 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
+                            Muzzard It
+                        </button>
+
+                        <div class="mt-4 p-2 border border-black bg-[#fffde7] text-xs font-mono h-24 overflow-y-auto">
+                            <p class="font-bold">Status:</p>
+                            <p id="status-box" class="whitespace-pre-wrap break-words">Paste image URLs below, one per line.</p>
+                        </div>
+                        <p class="text-xs italic">
+                            This is a tool for the people. No fluff, no nonsense. Just pure, unadulterated image downloading power. Remember to only download images you have the right to.
+                        </p>
+                    </div>
+                </section>
+
+                <section id="page-about" class="bg-[#fcc603] p-6 text-black font-serif border-t-4 border-black hidden">
+                     <h1 class="text-3xl font-extrabold text-red-800 font-sans" style="text-shadow: 1px 1px 0 #000">About Muzzard</h1>
+                    <p class="text-sm font-sans mb-6 text-gray-800">The Digital Gonzo Spirit</p>
+                    <div class="space-y-4 text-sm leading-relaxed">
+                        <p>Muzzard isn't just a tool; it's a statement. It's a throwback to a wilder, less polished internet. An era of function over form, of raw power in the hands of the user. We were inspired by the chaotic, brilliant energy of ESPN's Page 2 and the literary madness of Hunter S. Thompson. This is a tool built with that same spirit.</p>
+                        <h2 class="text-xl font-extrabold text-red-800 font-sans mt-8 mb-2" style="text-shadow: 1px 1px 0 #000">The 2000s Web Aesthetic</h2>
+                        <p>Remember when the web was a frontier? When pages were a glorious clash of bold colors, system fonts, and stark layouts? We do. This design is a deliberate homage to that time. The grays, the vibrant yellow, the pixelated edges—it's all meant to evoke a sense of nostalgia for a web that was less about sleek minimalism and more about unbridled information and personality.</p>
+                        <p>It’s not broken. It’s authentic.</p>
+                        <h2 class="text-xl font-extrabold text-red-800 font-sans mt-8 mb-2" style="text-shadow: 1px 1px 0 #000">A Tribute to Hunter S. Thompson</h2>
+                        <p>"When the going gets weird, the weird turn pro."</p>
+                        <p>Hunter S. Thompson was a master of chaos, a purveyor of truth through a distorted lens. His work on ESPN's Page 2, particularly his "Hey, Rube!" column, was a perfect marriage of sports, culture, and gonzo journalism. Muzzard is our digital nod to that legacy. It’s fast, a little bit weird, and it gets the job done without asking too many questions. It's a tool for the savage journey to the heart of the American dream... or at least for downloading some JPEGs.</p>
+                    </div>
+                </section>
+
+                <section id="page-help" class="bg-[#fcc603] p-6 text-black font-serif border-t-4 border-black hidden">
+                    <h1 class="text-3xl font-extrabold text-red-800 font-sans" style="text-shadow: 1px 1px 0 #000">Help & FAQ</h1>
+                    <p class="text-sm font-sans mb-6 text-gray-800">Knowledge for the People</p>
+                    <div class="space-y-4 text-sm leading-relaxed">
+                        <h2 class="text-xl font-extrabold text-red-800 font-sans mt-8 mb-2" style="text-shadow: 1px 1px 0 #000">How to use Muzzard</h2>
+                        <p>It's simple, by design.</p>
+                        <ol class="list-decimal list-inside space-y-2 pl-4">
+                            <li>Find the direct URL to an image you want to download. This usually ends in .jpg, .png, .gif, etc.</li>
+                            <li>Paste the URL into the big text box on the homepage.</li>
+                            <li>If you have more than one, paste each URL on a new line.</li>
+                            <li>Click the "Muzzard It" button.</li>
+                            <li>Your browser will prompt you to save each image. That's it. No frills.</li>
+                        </ol>
+                        <h2 class="text-xl font-extrabold text-red-800 font-sans mt-8 mb-2" style="text-shadow: 1px 1px 0 #000">Supported Sites: Imgur, etc.</h2>
+                        <p>Muzzard is built for direct image links. It's not a scraper. It works best with URLs that point directly to an image file.</p>
+                        <p>This means sites like <strong>Imgur</strong> (use the "Direct Link", not the gallery page), personal websites, and any other place that gives you a straight-up URL to the image itself will work perfectly. It will NOT work with gallery pages from sites like Flickr, or with images embedded in social media feeds.</p>
+                        <h2 class="text-xl font-extrabold text-red-800 font-sans mt-8 mb-2" style="text-shadow: 1px 1px 0 #000">Why are my downloads blocked or failing?</h2>
+                        <p>A few things could be happening here:</p>
+                        <ul class="list-disc list-inside space-y-2 pl-4">
+                            <li><strong>Invalid URL:</strong> You might have pasted a link to a webpage instead of an image. Muzzard will try to validate this and skip bad URLs.</li>
+                            <li><strong>CORS / Hotlink Protection:</strong> Some websites are nasty and don't like you linking directly to their images from other places. This is called hotlink protection. If a site has this enabled, Muzzard might not be able to fetch the image. There's not much we can do about that—it's the Wild West out here.</li>
+                            <li><strong>Browser Pop-up Blockers:</strong> Since Muzzard triggers multiple downloads, your browser might think it's under attack by pop-ups. Make sure you allow this site to download multiple files if your browser asks.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section id="page-contact" class="bg-[#fcc603] p-6 text-black font-serif border-t-4 border-black hidden">
+                    <h1 class="text-3xl font-extrabold text-red-800 font-sans" style="text-shadow: 1px 1px 0 #000">Contact Us</h1>
+                    <p class="text-sm font-sans mb-6 text-gray-800">Send a signal into the ether</p>
+                    <div class="space-y-4 text-sm leading-relaxed">
+                        <p>Got a problem? A suggestion? A hot tip on a story about psychic lizards in the athletic commission? Don't call us. We don't have a phone.</p>
+                        <p>In the spirit of the old guard, communication should be deliberate, not instantaneous. We don't have email. We don't have a Discord. We don't have a "social media presence."</p>
+                        <p class="font-bold mt-6">If you must reach us, here's how:</p>
+                        <p>Scrawl your message on a cocktail napkin. Hand it to a bartender at a dive bar off the Vegas strip. Tell them it's for "The Doctor." If your message is worthy, it'll find us. Maybe.</p>
+                        <p class="italic text-xs">(For bug reports and less esoteric matters, just imagine you're shouting into a fan. It's about as effective and far more therapeutic.)</p>
+                    </div>
+                </section>
+                
+                <section id="page-hey-rube" class="bg-[#fcc603] p-6 text-black font-serif border-t-4 border-black hidden">
+                    <h1 class="text-3xl font-extrabold text-red-800 font-sans" style="text-shadow: 1px 1px 0 #000">Hey, Rube!</h1>
+                    <p class="text-sm font-sans mb-6 text-gray-800">A Call to the Weird</p>
+                    <div class="space-y-4 text-sm leading-relaxed">
+                        <p class="text-base">"The sports world is a carnival, a rolling circus of freaks and heroes, and it's our job to be the ones shouting in the back of the tent."</p>
+                        <p>That was the ethos. "Hey, Rube!" wasn't just a column title; it was a carny's call to arms. A signal that things were about to get ugly, and help was needed from your fellow carnies to fight off the hostile townies. A call for solidarity among the strange.</p>
+                        <p>In the digital age, we're all townies, and we're all carnies. This corner of the web is for the carnies. For the ones who remember the noise, the chaos, and the sheer, unadulterated thrill of the game—any game.</p>
+                        <p class="font-bold">So, welcome. You heard the call.</p>
+                    </div>
+                </section>
+            </div>
+            
+            <aside class="bg-black text-white p-3 text-xs">
+                <div class="border-b border-gray-500 pb-2 mb-2">
+                    <span class="font-bold text-lg tracking-tighter">MUZZARD</span>
+                </div>
+                <div class="mb-4">
+                    <a href="#" data-page="hey-rube" class="text-blue-400 underline hover:text-blue-300">hey, rube!</a>
+                </div>
+                <h4 class="font-bold uppercase mb-2 text-amber-400">ALSO SEE:</h4>
+                <ul class="space-y-3">
+                    <li><a href="#" data-page="help" class="underline text-amber-400 hover:text-amber-300">How to use Muzzard</a></li>
+                    <li><a href="#" data-page="help" class="underline text-amber-400 hover:text-amber-300">Supported sites: Imgur, etc.</a></li>
+                    <li><a href="#" data-page="help" class="underline text-amber-400 hover:text-amber-300">Why are my downloads blocked?</a></li>
+                    <li><a href="#" data-page="about" class="underline text-amber-400 hover:text-amber-300">About the 2000s web aesthetic</a></li>
+                    <li><a href="#" data-page="about" class="underline text-amber-400 hover:text-amber-300">Tribute to Hunter S. Thompson</a></li>
+                </ul>
+            </aside>
+        </main>
+    </div>
+
+    <script type="module">
+        document.addEventListener('DOMContentLoaded', () => {
+            const pageContainer = document.getElementById('page-container');
+            const pages = pageContainer.querySelectorAll('section[id^="page-"]');
+            const navLinks = document.querySelectorAll('a[data-page]');
+
+            const navigate = (pageName) => {
+                pages.forEach(page => {
+                    if (page.id === `page-${pageName}`) {
+                        page.classList.remove('hidden');
+                    } else {
+                        page.classList.add('hidden');
+                    }
+                });
+                window.scrollTo(0, 0);
+            };
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const pageName = link.getAttribute('data-page');
+                    if (pageName) {
+                        navigate(pageName);
+                    }
+                });
+            });
+
+            // Downloader logic
+            const urlsTextarea = document.getElementById('urls-textarea');
+            const downloadBtn = document.getElementById('download-btn');
+            const statusBox = document.getElementById('status-box');
+            let isLoading = false;
+
+            const setStatus = (message) => {
+                statusBox.textContent = message;
+            };
+
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+            const handleDownload = async () => {
+                if (isLoading) return;
+
+                const urls = urlsTextarea.value;
+                const urlRegex = /^(https?:\/\/[^\s/$.?#].[^\s]*)$/i;
+                const allLines = urls.split('\n').map(url => url.trim()).filter(Boolean);
+                
+                if (allLines.length === 0) {
+                    setStatus('Please paste at least one URL.');
+                    return;
+                }
+
+                isLoading = true;
+                downloadBtn.disabled = true;
+                urlsTextarea.disabled = true;
+                downloadBtn.textContent = 'Processing...';
+                setStatus('Validating URLs...');
+
+                const validUrlList = [];
+                const invalidUrlList = [];
+
+                for (const url of allLines) {
+                    if (urlRegex.test(url)) {
+                        validUrlList.push(url);
+                    } else {
+                        invalidUrlList.push(url);
+                    }
+                }
+
+                if (validUrlList.length === 0) {
+                    setStatus(`No valid URLs found. Please check your list.\nInvalid entries:\n${invalidUrlList.join('\n')}`);
+                    isLoading = false;
+                    downloadBtn.disabled = false;
+                    urlsTextarea.disabled = false;
+                    downloadBtn.textContent = 'Muzzard It';
+                    return;
+                }
+                
+                let statusMessage = `Found ${validUrlList.length} valid URLs.`;
+                if (invalidUrlList.length > 0) {
+                    statusMessage += `\nSkipping ${invalidUrlList.length} invalid line(s).`;
+                }
+                setStatus(statusMessage + '\nStarting downloads...');
+                await sleep(500);
+
+                for (let i = 0; i < validUrlList.length; i++) {
+                    const url = validUrlList[i];
+                    const shortUrl = url.length > 50 ? `${url.substring(0, 50)}...` : url;
+                    setStatus(`Downloading image ${i + 1} of ${validUrlList.length}: ${shortUrl}`);
+                    
+                    try {
+                        const response = await fetch(url);
+                        
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch: ${response.status} ${response.statusText}`);
+                        }
+
+                        const blob = await response.blob();
+                        const objectUrl = URL.createObjectURL(blob);
+                        
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = objectUrl;
+
+                        let filename = new URL(url).pathname.substring(new URL(url).pathname.lastIndexOf('/') + 1);
+                        if (!filename) {
+                            filename = `muzzard-download-${Date.now()}`;
+                        }
+
+                        if (!filename.includes('.')) {
+                            const extension = blob.type.split('/')[1] || 'jpg';
+                            filename = `${filename}.${extension}`;
+                        }
+                        
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(objectUrl);
+                        
+                        await sleep(300);
+
+                    } catch (error) {
+                        console.error('Download error:', error);
+                        setStatus(`Error downloading ${shortUrl}: ${error instanceof Error ? error.message : 'Unknown error'}. Skipping.`);
+                        await sleep(1000);
+                        continue;
+                    }
+                }
+
+                isLoading = false;
+                downloadBtn.disabled = false;
+                urlsTextarea.disabled = false;
+                downloadBtn.textContent = 'Muzzard It';
+                setStatus(`Finished. ${validUrlList.length} image(s) processed.`);
+                urlsTextarea.value = '';
+            };
+            
+            downloadBtn.addEventListener('click', handleDownload);
+            
+            // Disable button if textarea is empty
+            urlsTextarea.addEventListener('input', () => {
+                downloadBtn.disabled = !urlsTextarea.value.trim() || isLoading;
+            });
+            downloadBtn.disabled = !urlsTextarea.value.trim();
+        });
+    </script>
+</body>
 </html>
