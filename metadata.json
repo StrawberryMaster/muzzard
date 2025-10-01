@@ -1,0 +1,5 @@
+{
+  "name": "muzzard",
+  "description": "A 2000s-themed web app to download images from URLs, including batch downloads from sites like Imgur.",
+  "requestFramePermissions": []
+}
