@@ -136,11 +136,64 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
+    const imgurSingleRegex = /^(?:https?:\/\/)?(?:i\.)?imgur\.com\/([a-zA-Z0-9]+)(\.[a-zA-Z]{3,4})?$/i;
+    const imgurAlbumRegex = /^(?:https?:\/\/)?(?:imgur\.com\/(?:a|gallery)\/)([a-zA-Z0-9]+)$/i;
+
+    const fetchImgurAlbumImages = async (albumUrl) => {
+        try {
+            const res = await fetch(albumUrl);
+            if (!res.ok) throw new Error(`Server responded ${res.status}`);
+            const html = await res.text();
+
+            const directMatches = Array.from(new Set((html.match(/https?:\/\/i\.imgur\.com\/[A-Za-z0-9]+(?:\.[a-zA-Z]{3,4})?/g) || []).map(s => s.split('?')[0])));
+            if (directMatches.length) return directMatches;
+
+            const hashes = [];
+            let m;
+            const hashRegex = /"hash"\s*:\s*"([A-Za-z0-9]+)"/g;
+            while ((m = hashRegex.exec(html)) !== null) {
+                hashes.push(m[1]);
+            }
+            if (hashes.length) return Array.from(new Set(hashes)).map(h => `https://i.imgur.com/${h}.jpg`);
+
+            // As last resort, try to find "data-id" style attributes
+            const dataIdMatches = Array.from(new Set((html.match(/data-id=["']([A-Za-z0-9]+)["']/g) || []).map(s => s.match(/data-id=["']([A-Za-z0-9]+)["']/)[1])));
+            if (dataIdMatches.length) return dataIdMatches.map(h => `https://i.imgur.com/${h}.jpg`);
+
+            return [];
+        } catch (e) {
+            console.error('Imgur album fetch failed', e);
+            return [];
+        }
+    };
+
+    const allowedExtensions = [
+        'jpg','jpeg','png','gif','webp','svg','avif','jxl','bmp','tif','tiff',
+        'mp4','webm','mov','mkv','mp3','m4a','ogg','wav'
+    ];
+
+    const isAllowedUrl = (u) => {
+        if (!u) return false;
+        if (u.startsWith('data:')) {
+            return /^data:(image|video|audio)\//i.test(u);
+        }
+        try {
+            const parsed = new URL(u);
+            const pathname = parsed.pathname || '';
+            const m = pathname.match(/\.([a-z0-9]+)$/i);
+            if (m && m[1]) {
+                return allowedExtensions.includes(m[1].toLowerCase());
+            }
+            return false;
+        } catch (e) {
+            return false;
+        }
+    };
+
     const handleDownload = async () => {
         if (isLoading) return;
 
         const urls = urlsTextarea.value;
-        const urlRegex = /^(https?:\/\/[^\s/$.?#].[^\s]*)$/i;
         const allLines = urls.split('\n').map(url => url.trim()).filter(Boolean);
 
         if (allLines.length === 0) {
@@ -148,23 +201,42 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const normalizedImgurRegex = /^(?:https?:\/\/)?(?:i\.)?imgur\.com\/([a-zA-Z0-9]+)(\.[a-zA-Z]{3,4})?$/i;
-        let imgurFound = false;
+        let anyImgurDetected = false;
+        const expandedLines = [];
 
-        const converted = allLines.map(url => {
-            const m = url.match(normalizedImgurRegex);
-            if (!m) return url;
-            imgurFound = true;
-            const id = m[1];
-            const ext = m[2] || '.jpg';
-            return `https://i.imgur.com/${id}${ext}`;
-        });
+        for (const url of allLines) {
+            const albumMatch = url.match(imgurAlbumRegex);
+            const singleMatch = url.match(imgurSingleRegex);
 
-        if (imgurFound) {
-            setStatus('Note: Imgur links detected. Converting to direct image links...');
-            await sleep(600);
-            allLines.splice(0, allLines.length, ...converted);
-            setStatus('Imgur links converted. Proceeding with download...');
+            if (albumMatch) {
+                anyImgurDetected = true;
+                setStatus('Imgur album/gallery detected. Fetching album contents...');
+                try {
+                    const imgs = await fetchImgurAlbumImages(url);
+                    if (imgs.length > 0) {
+                        expandedLines.push(...imgs);
+                        setStatus(`Found ${imgs.length} image(s) in album.`);
+                        await sleep(250);
+                    } else {
+                        expandedLines.push(url);
+                        setStatus('Could not extract images from album; keeping original link.');
+                    }
+                } catch (e) {
+                    console.error('Error fetching album:', e);
+                    expandedLines.push(url);
+                }
+            } else if (singleMatch) {
+                anyImgurDetected = true;
+                const id = singleMatch[1];
+                const ext = singleMatch[2] || '.jpg';
+                expandedLines.push(`https://i.imgur.com/${id}${ext}`);
+            } else {
+                expandedLines.push(url);
+            }
+        }
+
+        if (anyImgurDetected) {
+            setStatus('Imgur links processed. Proceeding with download...');
             await sleep(400);
         }
 
@@ -174,11 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.textContent = 'Processing...';
         setStatus('Validating URLs...');
 
-        const validUrlList = allLines.filter(url => urlRegex.test(url));
-        const invalidUrlList = allLines.filter(url => !urlRegex.test(url));
+        const validUrlList = expandedLines.filter(u => isAllowedUrl(u));
+        const invalidUrlList = expandedLines.filter(u => !isAllowedUrl(u));
 
         if (validUrlList.length === 0) {
-            setStatus(`No valid URLs found. Please check your list.\nInvalid entries:\n${invalidUrlList.join('\n')}`);
+            setStatus(`No valid media URLs found. Please check your list.\nInvalid entries:\n${invalidUrlList.join('\n')}`);
             isLoading = false;
             downloadBtn.disabled = false;
             urlsTextarea.disabled = false;
@@ -210,6 +282,75 @@ document.addEventListener('DOMContentLoaded', () => {
             urlsTextarea.value = '';
         }
     };
+
+    const createUploadUI = () => {
+        const uploadBtn = document.createElement('button');
+        uploadBtn.type = 'button';
+        uploadBtn.id = 'upload-files-btn';
+        uploadBtn.textContent = 'Upload files';
+        uploadBtn.style.marginRight = '8px';
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        fileInput.accept = 'text/*,image/*';
+        fileInput.style.display = 'none';
+        fileInput.id = 'import-file-input';
+
+        downloadBtn.parentNode.insertBefore(uploadBtn, downloadBtn);
+        downloadBtn.parentNode.insertBefore(fileInput, downloadBtn);
+
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        return fileInput;
+    };
+
+    const fileInput = createUploadUI();
+
+    fileInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+        setStatus(`Processing ${files.length} file(s)...`);
+
+        let totalAdded = 0;
+        for (const file of files) {
+            if (file.type.startsWith('image/')) {
+                try {
+                    const dataUrl = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = () => reject(new Error('FileReader error'));
+                        reader.readAsDataURL(file);
+                    });
+                    const added = addUrlsToTextarea([dataUrl]);
+                    if (added) totalAdded += added;
+                    setStatus(`Imported image file: ${file.name}`);
+                } catch (err) {
+                    console.error('Error reading image file:', err);
+                    setStatus(`Error reading ${file.name}`);
+                }
+            } else {
+                try {
+                    const text = await file.text();
+                    const urls = extractUrlsFromText(text);
+                    const added = addUrlsToTextarea(urls);
+                    if (added) totalAdded += added;
+                    setStatus(`Imported ${urls.length} links from ${file.name} (${added} new).`);
+                } catch (err) {
+                    console.error('Error reading text file:', err);
+                    setStatus(`Error reading ${file.name}`);
+                }
+            }
+            await new Promise(r => setTimeout(r, 150));
+        }
+
+        if (totalAdded > 0) {
+            setStatus(`Import complete: ${totalAdded} new link(s) added.`);
+        } else {
+            setStatus('Import complete: no new links added.');
+        }
+
+        fileInput.value = '';
+    });
 
     downloadBtn.addEventListener('click', handleDownload);
 
