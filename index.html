@@ -89,6 +89,14 @@
                                 class="px-6 py-2 bg-blue-800 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-blue-900 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
                                 Upload files
                             </button>
+                            <div id="import-text-box" class="flex flex-col items-stretch space-y-2">
+                                <textarea id="import-textarea" rows="2" placeholder="Paste text containing links here"
+                                    class="w-56 p-2 border-2 border-black bg-[#fffde7] text-black font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-700 resize-y"></textarea>
+                                <button type="button" id="import-text-btn"
+                                    class="px-2 py-1 bg-yellow-700 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-yellow-800 transition-colors">
+                                    Paste file/text
+                                </button>
+                            </div>
                             <div class="flex items-center">
                                 <input type="checkbox" id="zip-checkbox"
                                     class="h-4 w-4 border-2 border-black bg-[#fffde7] text-red-800 focus:ring-red-700">
@@ -113,7 +121,7 @@
                     <h1 class="text-3xl font-extrabold text-red-800 font-sans" style="text-shadow: 1px 1px 0 #000">About
                         Muzzard</h1>
                     <div class="space-y-4 text-sm leading-relaxed">
-                        <p>There's not really much to say about muzzard. It's a simple tool with one 
+                        <p>There's not really much to say about muzzard. It's a simple tool with one
                             purpose: to download images from the web quickly and without fuss. But like any good tool,
                             it's got a bit of personality.</p>
                         <p>This site's design is a homage to Hunter S. Thompson's "Hey, Rube!" column on ESPN's
@@ -141,9 +149,11 @@
                         <h2 class="text-xl font-extrabold text-red-800 font-sans mt-8 mb-2"
                             style="text-shadow: 1px 1px 0 #000">On supported sites</h2>
                         <p>Muzzard is built for and works best with direct image links.</p>
-                        <p>For this reason, sites like <strong>Imgur</strong> (use the "Direct Link", not the gallery page),
+                        <p>For this reason, sites like <strong>Imgur</strong> (use the "Direct Link", not the gallery
+                            page),
                             personal websites, and any other place that gives you a straight-up URL to the image itself
-                            will work perfectly. It may not work as well with gallery pages from sites like Flickr, or with
+                            will work perfectly. It may not work as well with gallery pages from sites like Flickr, or
+                            with
                             images embedded in social media feeds.</p>
                         <h2 class="text-xl font-extrabold text-red-800 font-sans mt-8 mb-2"
                             style="text-shadow: 1px 1px 0 #000">Why are my downloads blocked or failing?</h2>
@@ -156,13 +166,16 @@
                                 If a site has this enabled, Muzzard might not be able to fetch the image. There's not
                                 much we can do about that — it's the Wild West out here.</li>
                             <li><strong>Browser pop-up blockers:</strong> Since Muzzard triggers multiple downloads,
-                                it's possible your browser might think it's under attack by pop-ups. This should not happen
+                                it's possible your browser might think it's under attack by pop-ups. This should not
+                                happen
                                 on most modern browsers, but if it does, make sure you allow this site to
                                 download multiple files if your browser asks.</li>
                         </ul>
                         <h2 class="text-xl font-extrabold text-red-800 font-sans mt-8 mb-2"
                             style="text-shadow: 1px 1px 0 #000">Why 'Muzzard'?</h2>
-                        <p>Because of <a href="https://www.thisworddoesnotexist.com/w/muzzard/eyJ3IjogIm11enphcmQiLCAiZCI6ICJhIHNtYWxsIGxpZ2h0IGhvcnNlIHdpdGggYSBzbGlnaHRseSBoaWdoZXIgcmFuZ2Ugb2YgbW92ZW1lbnQgYW5kIGEgbG9uZ2VyIGhvcml6b250YWwgYmFyIGFyb3VuZCB0aGUgaGVhZCB0aGFuIHRoZSB0YWlsLiBJdCBpcyBhIG1vcmUgY29tbW9uIGhvcnNlIG9mIGEgYnJlZWQgdXNlZCBmb3Igcm91Z2ggd29yayIsICJwIjogIm5vdW4iLCAiZSI6ICJoaXMgbXV6emFyZCBib2JibGVkIHdpdGggc3BlZWQiLCAicyI6IFsibXV6IiwgInphcmQiXX0=.WDpzCmBx-apxOnJ8HGRUyRBxHSqFsScST23WeqTMGFs=" target="_blank">this</a>.</p>
+                        <p>Because of <a
+                                href="https://www.thisworddoesnotexist.com/w/muzzard/eyJ3IjogIm11enphcmQiLCAiZCI6ICJhIHNtYWxsIGxpZ2h0IGhvcnNlIHdpdGggYSBzbGlnaHRseSBoaWdoZXIgcmFuZ2Ugb2YgbW92ZW1lbnQgYW5kIGEgbG9uZ2VyIGhvcml6b250YWwgYmFyIGFyb3VuZCB0aGUgaGVhZCB0aGFuIHRoZSB0YWlsLiBJdCBpcyBhIG1vcmUgY29tbW9uIGhvcnNlIG9mIGEgYnJlZWQgdXNlZCBmb3Igcm91Z2ggd29yayIsICJwIjogIm5vdW4iLCAiZSI6ICJoaXMgbXV6emFyZCBib2JibGVkIHdpdGggc3BlZWQiLCAicyI6IFsibXV6IiwgInphcmQiXX0=.WDpzCmBx-apxOnJ8HGRUyRBxHSqFsScST23WeqTMGFs="
+                                target="_blank">this</a>.</p>
                     </div>
                 </section>
 
@@ -173,8 +186,10 @@
                     <p class="text-sm font-sans mb-6 text-gray-800">assuming we're still here</p>
                     <div class="space-y-4 text-sm leading-relaxed">
                         <p>Got a problem? A suggestion? Don't call us; we don't have a phone, unfortunately.</p>
-                        <p>What you can do is use this repo's <a href="https://github.com/StrawberryMaster/muzzard/issues" class="underline text-blue-400 hover:text-blue-300">issue tab</a>
-                        and file a report there.</p>
+                        <p>What you can do is use this repo's <a
+                                href="https://github.com/StrawberryMaster/muzzard/issues"
+                                class="underline text-blue-400 hover:text-blue-300">issue tab</a>
+                            and file a report there.</p>
                     </div>
                 </section>
             </div>

@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (pageName) {
                 navigate(pageName);
             }
-        });
+        }, { passive: false });
     });
 
     // Downloader logic
@@ -30,12 +30,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusBox = document.getElementById('status-box');
     const zipCheckbox = document.getElementById('zip-checkbox');
     let isLoading = false;
+    let abortController = null;
 
     const setStatus = (message) => {
         statusBox.textContent = message;
     };
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const MAX_CONCURRENT_DOWNLOADS = 6;
+    const MAX_RETRIES = 2;
+    const RETRY_DELAY = 1000;
+
+    const blobCache = new Map();
+    const pendingFetches = new Map();
 
     const getFilenameFromUrl = (url, blob) => {
         try {
@@ -45,48 +53,152 @@ document.addEventListener('DOMContentLoaded', () => {
                 const extension = blob.type.split('/')[1] || 'jpg';
                 filename = `${filename}.${extension}`;
             }
-            return filename.replace(/[/\\?%*:|"<>]/g, '-'); // Sanitize filename
+            return filename.replace(/[/\\?%*:|"<>]/g, '-');
         } catch (e) {
             const extension = blob.type.split('/')[1] || 'jpg';
             return `muzzard-download-${Date.now()}.${extension}`;
         }
     };
 
-    const downloadIndividually = async (urlList) => {
-        setStatus(`Fetching ${urlList.length} image(s) in parallel...`);
+    const fetchWithRetry = async (url, retries = MAX_RETRIES) => {
+        if (blobCache.has(url)) {
+            return blobCache.get(url);
+        }
 
-        const downloadPromises = urlList.map(url =>
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) throw new Error(`Server responded with ${response.status}`);
-                    return response.blob();
+        if (pendingFetches.has(url)) {
+            return pendingFetches.get(url);
+        }
+
+        const fetchPromise = (async () => {
+            let lastError;
+            
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'default',
+                        credentials: 'omit',
+                        signal: abortController?.signal
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const blob = await response.blob();
+                    const result = { blob, filename: getFilenameFromUrl(url, blob) };
+                    
+                    blobCache.set(url, result);
+                    pendingFetches.delete(url);
+                    
+                    return result;
+                } catch (error) {
+                    lastError = error;
+                    
+                    if (error.name === 'AbortError') {
+                        throw error;
+                    }
+
+                    if (error.message.includes('CORS') || error.message.includes('NetworkError')) {
+                        throw new Error(`CORS blocked: ${url}`);
+                    }
+
+                    if (attempt < retries) {
+                        await sleep(RETRY_DELAY * Math.pow(2, attempt));
+                    }
+                }
+            }
+            
+            pendingFetches.delete(url);
+            throw lastError;
+        })();
+
+        pendingFetches.set(url, fetchPromise);
+        return fetchPromise;
+    };
+
+    // concurrency limiter
+    const downloadWithConcurrencyLimit = async (urls, concurrency, onProgress) => {
+        const results = [];
+        const executing = [];
+        
+        for (let i = 0; i < urls.length; i++) {
+            const url = urls[i];
+            
+            const promise = fetchWithRetry(url)
+                .then(result => {
+                    onProgress?.(i, true, result);
+                    return { status: 'fulfilled', value: result, index: i };
                 })
-                .then(blob => ({ status: 'fulfilled', value: { blob, filename: getFilenameFromUrl(url, blob) } }))
-                .catch(error => ({ status: 'rejected', reason: { url, error: error.message } }))
+                .catch(error => {
+                    onProgress?.(i, false, error);
+                    return { status: 'rejected', reason: { url, error: error.message }, index: i };
+                })
+                .then(result => {
+                    executing.splice(executing.indexOf(promise), 1);
+                    return result;
+                });
+
+            results[i] = promise;
+            executing.push(promise);
+
+            if (executing.length >= concurrency) {
+                await Promise.race(executing);
+            }
+        }
+
+        return Promise.all(results);
+    };
+
+    const downloadIndividually = async (urlList) => {
+        setStatus(`Fetching ${urlList.length} file(s) with ${MAX_CONCURRENT_DOWNLOADS} concurrent connections...`);
+        
+        let completed = 0;
+        const results = await downloadWithConcurrencyLimit(
+            urlList,
+            MAX_CONCURRENT_DOWNLOADS,
+            (index, success, data) => {
+                completed++;
+                if (success) {
+                    setStatus(`Fetched ${completed}/${urlList.length}: ${data.filename}`);
+                } else {
+                    setStatus(`Progress ${completed}/${urlList.length} (${data.message})`);
+                }
+            }
         );
 
-        const results = await Promise.all(downloadPromises);
         const successfulDownloads = results.filter(r => r.status === 'fulfilled').map(r => r.value);
         const failedDownloads = results.filter(r => r.status === 'rejected').map(r => r.reason);
 
         if (successfulDownloads.length === 0) {
-            setStatus(`Download finished. No images could be fetched. ${failedDownloads.length} failed.`);
+            setStatus(`Download failed. No files could be fetched. ${failedDownloads.length} failed.`);
             return;
         }
 
         setStatus(`Fetch complete. Triggering ${successfulDownloads.length} downloads...`);
-        await sleep(500);
+        await sleep(300);
 
         for (let i = 0; i < successfulDownloads.length; i++) {
             const { blob, filename } = successfulDownloads[i];
-            setStatus(`Downloading ${i + 1} of ${successfulDownloads.length}: ${filename}`);
-            saveAs(blob, filename); // Using FileSaver.js for robustness
-            await sleep(300);
+            setStatus(`Downloading ${i + 1}/${successfulDownloads.length}: ${filename}`);
+            
+            const objectUrl = URL.createObjectURL(blob);
+            try {
+                saveAs(blob, filename);
+            } finally {
+                setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+            }
+            
+            if (i < successfulDownloads.length - 1) {
+                await sleep(100);
+            }
         }
 
-        let finalMessage = `Finished. ${successfulDownloads.length} image(s) processed.`;
+        let finalMessage = `✓ Completed. ${successfulDownloads.length} file(s) downloaded.`;
         if (failedDownloads.length > 0) {
             finalMessage += ` ${failedDownloads.length} failed.`;
+            console.warn('Failed downloads:', failedDownloads);
         }
         setStatus(finalMessage);
     };
@@ -96,52 +208,79 @@ document.addEventListener('DOMContentLoaded', () => {
             setStatus('Error: Zipping library not loaded.');
             return;
         }
+        
         const zip = new JSZip();
-        setStatus(`Fetching ${urlList.length} image(s) for zipping...`);
+        setStatus(`Fetching ${urlList.length} file(s) (${MAX_CONCURRENT_DOWNLOADS} concurrent connections)...`);
 
-        const fetchPromises = urlList.map(url =>
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) throw new Error(`Server responded with ${response.status}`);
-                    return response.blob();
-                })
-                .then(blob => ({ status: 'fulfilled', value: { blob, filename: getFilenameFromUrl(url, blob) } }))
-                .catch(error => ({ status: 'rejected', reason: { url, error: error.message } }))
+        let completed = 0;
+        const results = await downloadWithConcurrencyLimit(
+            urlList,
+            MAX_CONCURRENT_DOWNLOADS,
+            (index, success, data) => {
+                completed++;
+                setStatus(`Fetching for ZIP: ${completed}/${urlList.length}...`);
+            }
         );
 
-        const results = await Promise.all(fetchPromises);
         const successfulFetches = results.filter(r => r.status === 'fulfilled').map(r => r.value);
         const failedFetches = results.filter(r => r.status === 'rejected').map(r => r.reason);
 
         if (successfulFetches.length === 0) {
-            setStatus(`Zipping cancelled. No images could be fetched. ${failedFetches.length} failed.`);
+            setStatus(`ZIP fetch cancelled. No files could be fetched. ${failedFetches.length} failed.`);
             return;
         }
 
-        setStatus(`Fetched ${successfulFetches.length} images. Now creating ZIP file...`);
+        setStatus(`Fetched ${successfulFetches.length} files. Creating ZIP...`);
 
-        successfulFetches.forEach(({ filename, blob }) => zip.file(filename, blob));
-
-        const content = await zip.generateAsync({ type: "blob" }, (metadata) => {
-            setStatus(`Zipping... ${metadata.percent.toFixed(0)}%`);
+        // Handle duplicate filenames
+        const filenameCounts = new Map();
+        successfulFetches.forEach(({ filename, blob }) => {
+            let finalFilename = filename;
+            if (filenameCounts.has(filename)) {
+                const count = filenameCounts.get(filename);
+                filenameCounts.set(filename, count + 1);
+                const parts = filename.split('.');
+                const ext = parts.pop();
+                finalFilename = `${parts.join('.')}_${count}.${ext}`;
+            } else {
+                filenameCounts.set(filename, 1);
+            }
+            zip.file(finalFilename, blob);
         });
+
+        const content = await zip.generateAsync(
+            { 
+                type: "blob",
+                compression: "DEFLATE",
+                compressionOptions: { level: 6 }
+            },
+            (metadata) => {
+                setStatus(`Creating ZIP... ${metadata.percent.toFixed(0)}%`);
+            }
+        );
 
         saveAs(content, `muzzard-pack-${Date.now()}.zip`);
 
-        let finalMessage = `Finished. ${successfulFetches.length} image(s) saved to ZIP.`;
+        let finalMessage = `ZIP created. ${successfulFetches.length} file(s) archived.`;
         if (failedFetches.length > 0) {
-            finalMessage += ` ${failedFetches.length} failed to fetch.`;
+            finalMessage += ` ${failedFetches.length} failed.`;
+            console.warn('Failed fetches:', failedFetches);
         }
         setStatus(finalMessage);
-    };
 
+        blobCache.clear();
+    };
 
     const imgurSingleRegex = /^(?:https?:\/\/)?(?:i\.)?imgur\.com\/([a-zA-Z0-9]+)(\.[a-zA-Z]{3,4})?$/i;
     const imgurAlbumRegex = /^(?:https?:\/\/)?(?:imgur\.com\/(?:a|gallery)\/)([a-zA-Z0-9]+)$/i;
 
     const fetchImgurAlbumImages = async (albumUrl) => {
         try {
-            const res = await fetch(albumUrl);
+            const res = await fetch(albumUrl, {
+                mode: 'cors',
+                credentials: 'omit',
+                signal: abortController?.signal
+            });
             if (!res.ok) throw new Error(`Server responded ${res.status}`);
             const html = await res.text();
 
@@ -213,6 +352,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        abortController = new AbortController();
+
         let anyImgurDetected = false;
         const expandedLines = [];
 
@@ -228,7 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (imgs.length > 0) {
                         expandedLines.push(...imgs);
                         setStatus(`Found ${imgs.length} image(s) in album.`);
-                        await sleep(250);
+                        await sleep(200);
                     } else {
                         expandedLines.push(url);
                         setStatus('Could not extract images from album; keeping original link.');
@@ -248,8 +389,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (anyImgurDetected) {
-            setStatus('Imgur links processed. Proceeding with download...');
-            await sleep(400);
+            setStatus('Imgur links processed. Proceeding...');
+            await sleep(300);
         }
 
         isLoading = true;
@@ -262,36 +403,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const invalidUrlList = expandedLines.filter(u => !isAllowedUrl(u));
 
         if (validUrlList.length === 0) {
-            setStatus(`No valid media URLs found. Please check your list.\nInvalid entries:\n${invalidUrlList.join('\n')}`);
+            setStatus(`No valid media URLs found. Check console for details.`);
+            console.warn('Invalid URLs:', invalidUrlList);
             isLoading = false;
             downloadBtn.disabled = false;
             urlsTextarea.disabled = false;
             downloadBtn.textContent = 'Muzzard it';
+            abortController = null;
             return;
         }
 
-        let statusMessage = `Found ${validUrlList.length} valid URLs.`;
+        const uniqueUrls = [...new Set(validUrlList)];
+        const duplicatesRemoved = validUrlList.length - uniqueUrls.length;
+
+        let statusMessage = `Found ${uniqueUrls.length} valid URL(s).`;
+        if (duplicatesRemoved > 0) {
+            statusMessage += ` (${duplicatesRemoved} duplicate(s) removed)`;
+        }
         if (invalidUrlList.length > 0) {
-            statusMessage += `\nSkipping ${invalidUrlList.length} invalid line(s).`;
+            statusMessage += ` Skipping ${invalidUrlList.length} invalid.`;
         }
         setStatus(statusMessage);
-        await sleep(500);
+        await sleep(400);
 
         try {
             if (zipCheckbox.checked) {
-                await downloadAsZip(validUrlList);
+                await downloadAsZip(uniqueUrls);
             } else {
-                await downloadIndividually(validUrlList);
+                await downloadIndividually(uniqueUrls);
             }
         } catch (error) {
-            console.error("An unexpected error occurred during download:", error);
-            setStatus("An unexpected error occurred. Check the console for details.");
+            if (error.name === 'AbortError') {
+                setStatus("Download cancelled by user.");
+            } else {
+                console.error("Download error:", error);
+                setStatus(`Error: ${error.message || 'Unknown error occurred'}`);
+            }
         } finally {
             isLoading = false;
             downloadBtn.disabled = false;
             urlsTextarea.disabled = false;
             downloadBtn.textContent = 'Muzzard It';
             urlsTextarea.value = '';
+            abortController = null;
         }
     };
 
@@ -321,51 +475,47 @@ document.addEventListener('DOMContentLoaded', () => {
         return fileInput;
     };
 
+    const urlRegex = /(https?:\/\/[^\s'">)]+)/g;
+    const htmlTestRegex = /<\/?[a-z][\s\S]*>/i;
+
     const extractUrlsFromText = (text) => {
         if (!text) return [];
-        // quick regex for obvious http(s) links
-        const urlRegex = /(https?:\/\/[^\s'">)]+)/g;
+        
         const rawMatches = text.match(urlRegex) || [];
-
-        // if it looks like HTML, parse and extract attribute-based links too
-        const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(text);
+        const looksLikeHtml = htmlTestRegex.test(text);
+        
         if (looksLikeHtml && typeof DOMParser !== 'undefined') {
             try {
                 const doc = new DOMParser().parseFromString(text, 'text/html');
                 const urls = new Set(rawMatches.map(u => u.trim()));
 
-                // img[src|data-src|data-original], source[src], video[src], audio[src]
+                const srcAttrs = ['src', 'data-src', 'data-original', 'data-image', 'data-lazy'];
+                
                 doc.querySelectorAll('img,source,video,audio').forEach(el => {
-                    const srcAttrs = ['src', 'data-src', 'data-original', 'data-image', 'data-lazy'];
                     srcAttrs.forEach(attr => {
-                        const v = el.getAttribute && el.getAttribute(attr);
+                        const v = el.getAttribute?.(attr);
                         if (v) urls.add(v.split('?')[0].trim());
                     });
-                    // srcset can contain multiple comma-separated urls
-                    if (el.getAttribute) {
-                        const srcset = el.getAttribute('srcset');
-                        if (srcset) {
-                            srcset.split(',').forEach(part => {
-                                const url = part.trim().split(' ')[0];
-                                if (url) urls.add(url.split('?')[0].trim());
-                            });
-                        }
+                    
+                    const srcset = el.getAttribute?.('srcset');
+                    if (srcset) {
+                        srcset.split(',').forEach(part => {
+                            const url = part.trim().split(' ')[0];
+                            if (url) urls.add(url.split('?')[0].trim());
+                        });
                     }
                 });
 
-                // anchors
-                doc.querySelectorAll('a').forEach(a => {
-                    try {
-                        const href = a.getAttribute('href') || a.href;
-                        if (href && /^https?:\/\//i.test(href)) urls.add(href.split('?')[0].trim());
-                    } catch (e) { /* ignore */ }
+                doc.querySelectorAll('a[href]').forEach(a => {
+                    const href = a.getAttribute('href');
+                    if (href && /^https?:\/\//i.test(href)) {
+                        urls.add(href.split('?')[0].trim());
+                    }
                 });
 
-                // meta og:image / twitter:image
                 const meta = doc.querySelector('meta[property="og:image"],meta[name="og:image"],meta[name="twitter:image"]');
-                if (meta && meta.content) urls.add(meta.content.split('?')[0].trim());
+                if (meta?.content) urls.add(meta.content.split('?')[0].trim());
 
-                // data-id / data-image-id attributes (for Imgur-like embeds)
                 doc.querySelectorAll('[data-id],[data-image-id],[data-image]').forEach(el => {
                     const v = el.getAttribute('data-id') || el.getAttribute('data-image-id') || el.getAttribute('data-image');
                     if (v && /^[A-Za-z0-9]+$/.test(v)) {
@@ -373,32 +523,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                return Array.from(urls).map(u => u.trim()).filter(Boolean);
+                return Array.from(urls);
             } catch (e) {
                 console.error('extractUrlsFromText parse error', e);
-                // fallback to regex matches
                 return Array.from(new Set(rawMatches.map(u => u.trim())));
             }
         }
 
-        // fallback: return unique regex matches
         return Array.from(new Set(rawMatches.map(u => u.trim())));
     };
 
     const addUrlsToTextarea = (newUrls) => {
-        if (!newUrls || newUrls.length === 0) return 0;
+        if (!newUrls?.length) return 0;
+        
         const existingUrls = new Set(urlsTextarea.value.split('\n').map(u => u.trim()).filter(Boolean));
         let addedCount = 0;
 
-        newUrls.forEach(rawUrl => {
-            if (!rawUrl) return;
-            const url = rawUrl.trim();
+        const isImgurPageRegex = /^(?:https?:\/\/)?(?:m\.)?(?:imgur\.com)\/(a\/|gallery\/)?[A-Za-z0-9]+(?:[\/?#].*)?$/i;
 
-            // allow three cases:
-            // 1) direct media URLs (isAllowedUrl)
-            // 2) Imgur album/gallery or imgur page links (we'll expand them later)
-            // 3) data: URIs (already handled in isAllowedUrl)
-            const isImgurPage = /^(?:https?:\/\/)?(?:m\.)?(?:imgur\.com)\/(a\/|gallery\/)?[A-Za-z0-9]+(?:[\/?#].*)?$/i.test(url);
+        newUrls.forEach(rawUrl => {
+            const url = rawUrl?.trim();
+            if (!url) return;
+
+            const isImgurPage = isImgurPageRegex.test(url);
             const shouldAdd = isAllowedUrl(url) || isImgurPage || url.startsWith('data:');
 
             if (shouldAdd && !existingUrls.has(url)) {
@@ -414,15 +561,34 @@ document.addEventListener('DOMContentLoaded', () => {
         return addedCount;
     };
 
+    const importTextarea = document.getElementById('import-textarea');
+    const importTextBtn = document.getElementById('import-text-btn');
+
+    if (importTextarea && importTextBtn) {
+        importTextBtn.addEventListener('click', () => {
+            const text = importTextarea.value;
+            if (!text.trim()) {
+                setStatus('Paste some text containing links to import.');
+                return;
+            }
+            const urls = extractUrlsFromText(text);
+            const added = addUrlsToTextarea(urls);
+            setStatus(`Imported ${added} new link(s).`);
+            importTextarea.value = '';
+        }, { passive: true });
+    }
+
     const fileInput = createUploadUI();
 
     fileInput.addEventListener('change', async (e) => {
         const files = Array.from(e.target.files || []);
-        if (files.length === 0) return;
+        if (!files.length) return;
+        
         setStatus(`Processing ${files.length} file(s)...`);
 
         let totalAdded = 0;
-        for (const file of files) {
+        
+        const filePromises = files.map(async (file) => {
             if (file.type.startsWith('image/')) {
                 try {
                     const dataUrl = await new Promise((resolve, reject) => {
@@ -431,41 +597,57 @@ document.addEventListener('DOMContentLoaded', () => {
                         reader.onerror = () => reject(new Error('FileReader error'));
                         reader.readAsDataURL(file);
                     });
-                    const added = addUrlsToTextarea([dataUrl]);
-                    if (added) totalAdded += added;
-                    setStatus(`Imported image file: ${file.name}`);
+                    return { type: 'image', urls: [dataUrl], filename: file.name };
                 } catch (err) {
                     console.error('Error reading image file:', err);
-                    setStatus(`Error reading ${file.name}`);
+                    return { type: 'error', filename: file.name };
                 }
             } else {
                 try {
                     const text = await file.text();
                     const urls = extractUrlsFromText(text);
-                    const added = addUrlsToTextarea(urls);
-                    if (added) totalAdded += added;
-                    setStatus(`Imported ${urls.length} links from ${file.name} (${added} new).`);
+                    return { type: 'text', urls, filename: file.name };
                 } catch (err) {
                     console.error('Error reading text file:', err);
-                    setStatus(`Error reading ${file.name}`);
+                    return { type: 'error', filename: file.name };
                 }
             }
-            await new Promise(r => setTimeout(r, 150));
-        }
+        });
 
-        if (totalAdded > 0) {
-            setStatus(`Import complete: ${totalAdded} new link(s) added.`);
-        } else {
-            setStatus('Import complete: no new links added.');
-        }
+        const results = await Promise.all(filePromises);
+        
+        results.forEach(result => {
+            if (result.type === 'error') {
+                setStatus(`Error reading ${result.filename}`);
+            } else {
+                const added = addUrlsToTextarea(result.urls);
+                totalAdded += added;
+            }
+        });
+
+        setStatus(totalAdded > 0 
+            ? `Import complete: ${totalAdded} new link(s) added.`
+            : 'Import complete: no new links added.'
+        );
 
         fileInput.value = '';
-    });
+    }, { passive: true });
 
     downloadBtn.addEventListener('click', handleDownload);
 
+    let inputTimeout;
     urlsTextarea.addEventListener('input', () => {
-        downloadBtn.disabled = !urlsTextarea.value.trim() || isLoading;
-    });
+        clearTimeout(inputTimeout);
+        inputTimeout = setTimeout(() => {
+            downloadBtn.disabled = !urlsTextarea.value.trim() || isLoading;
+        }, 150);
+    }, { passive: true });
+    
     downloadBtn.disabled = !urlsTextarea.value.trim();
+
+    window.addEventListener('beforeunload', () => {
+        blobCache.clear();
+        pendingFetches.clear();
+        abortController?.abort();
+    });
 });
