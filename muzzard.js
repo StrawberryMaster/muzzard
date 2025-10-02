@@ -322,28 +322,97 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const extractUrlsFromText = (text) => {
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const matches = text.match(urlRegex);
-        return matches ? matches.map(u => u.trim()) : [];
-    }
+        if (!text) return [];
+        // quick regex for obvious http(s) links
+        const urlRegex = /(https?:\/\/[^\s'">)]+)/g;
+        const rawMatches = text.match(urlRegex) || [];
+
+        // if it looks like HTML, parse and extract attribute-based links too
+        const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(text);
+        if (looksLikeHtml && typeof DOMParser !== 'undefined') {
+            try {
+                const doc = new DOMParser().parseFromString(text, 'text/html');
+                const urls = new Set(rawMatches.map(u => u.trim()));
+
+                // img[src|data-src|data-original], source[src], video[src], audio[src]
+                doc.querySelectorAll('img,source,video,audio').forEach(el => {
+                    const srcAttrs = ['src', 'data-src', 'data-original', 'data-image', 'data-lazy'];
+                    srcAttrs.forEach(attr => {
+                        const v = el.getAttribute && el.getAttribute(attr);
+                        if (v) urls.add(v.split('?')[0].trim());
+                    });
+                    // srcset can contain multiple comma-separated urls
+                    if (el.getAttribute) {
+                        const srcset = el.getAttribute('srcset');
+                        if (srcset) {
+                            srcset.split(',').forEach(part => {
+                                const url = part.trim().split(' ')[0];
+                                if (url) urls.add(url.split('?')[0].trim());
+                            });
+                        }
+                    }
+                });
+
+                // anchors
+                doc.querySelectorAll('a').forEach(a => {
+                    try {
+                        const href = a.getAttribute('href') || a.href;
+                        if (href && /^https?:\/\//i.test(href)) urls.add(href.split('?')[0].trim());
+                    } catch (e) { /* ignore */ }
+                });
+
+                // meta og:image / twitter:image
+                const meta = doc.querySelector('meta[property="og:image"],meta[name="og:image"],meta[name="twitter:image"]');
+                if (meta && meta.content) urls.add(meta.content.split('?')[0].trim());
+
+                // data-id / data-image-id attributes (for Imgur-like embeds)
+                doc.querySelectorAll('[data-id],[data-image-id],[data-image]').forEach(el => {
+                    const v = el.getAttribute('data-id') || el.getAttribute('data-image-id') || el.getAttribute('data-image');
+                    if (v && /^[A-Za-z0-9]+$/.test(v)) {
+                        urls.add(`https://i.imgur.com/${v}.jpg`);
+                    }
+                });
+
+                return Array.from(urls).map(u => u.trim()).filter(Boolean);
+            } catch (e) {
+                console.error('extractUrlsFromText parse error', e);
+                // fallback to regex matches
+                return Array.from(new Set(rawMatches.map(u => u.trim())));
+            }
+        }
+
+        // fallback: return unique regex matches
+        return Array.from(new Set(rawMatches.map(u => u.trim())));
+    };
 
     const addUrlsToTextarea = (newUrls) => {
         if (!newUrls || newUrls.length === 0) return 0;
         const existingUrls = new Set(urlsTextarea.value.split('\n').map(u => u.trim()).filter(Boolean));
         let addedCount = 0;
-        newUrls.forEach(url => {
-            if (isAllowedUrl(url) && !existingUrls.has(url)) {
+
+        newUrls.forEach(rawUrl => {
+            if (!rawUrl) return;
+            const url = rawUrl.trim();
+
+            // allow three cases:
+            // 1) direct media URLs (isAllowedUrl)
+            // 2) Imgur album/gallery or imgur page links (we'll expand them later)
+            // 3) data: URIs (already handled in isAllowedUrl)
+            const isImgurPage = /^(?:https?:\/\/)?(?:m\.)?(?:imgur\.com)\/(a\/|gallery\/)?[A-Za-z0-9]+(?:[\/?#].*)?$/i.test(url);
+            const shouldAdd = isAllowedUrl(url) || isImgurPage || url.startsWith('data:');
+
+            if (shouldAdd && !existingUrls.has(url)) {
                 existingUrls.add(url);
                 addedCount++;
             }
-        }
-        );
+        });
+
         if (addedCount > 0) {
             urlsTextarea.value = Array.from(existingUrls).join('\n');
             downloadBtn.disabled = false;
         }
         return addedCount;
-    }
+    };
 
     const fileInput = createUploadUI();
 
