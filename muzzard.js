@@ -148,17 +148,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const directMatches = Array.from(new Set((html.match(/https?:\/\/i\.imgur\.com\/[A-Za-z0-9]+(?:\.[a-zA-Z]{3,4})?/g) || []).map(s => s.split('?')[0])));
             if (directMatches.length) return directMatches;
 
-            const hashes = [];
+            const hashExtRegex = /"hash"\s*:\s*"([A-Za-z0-9]+)"(?:\s*,\s*"ext"\s*:\s*"(\.[a-zA-Z0-9]+)")?/g;
+            const found = [];
             let m;
-            const hashRegex = /"hash"\s*:\s*"([A-Za-z0-9]+)"/g;
-            while ((m = hashRegex.exec(html)) !== null) {
-                hashes.push(m[1]);
+            while ((m = hashExtRegex.exec(html)) !== null) {
+                const hash = m[1];
+                const ext = (m[2] && m[2].startsWith('.')) ? m[2] : (m[2] ? `.${m[2]}` : '.jpg');
+                found.push(`https://i.imgur.com/${hash}${ext}`);
             }
-            if (hashes.length) return Array.from(new Set(hashes)).map(h => `https://i.imgur.com/${h}.jpg`);
+            if (found.length) return Array.from(new Set(found)).map(s => s.split('?')[0]);
 
-            // As last resort, try to find "data-id" style attributes
-            const dataIdMatches = Array.from(new Set((html.match(/data-id=["']([A-Za-z0-9]+)["']/g) || []).map(s => s.match(/data-id=["']([A-Za-z0-9]+)["']/)[1])));
-            if (dataIdMatches.length) return dataIdMatches.map(h => `https://i.imgur.com/${h}.jpg`);
+            const dataSrcMatches = Array.from(new Set(
+                (html.match(/https?:\/\/i\.imgur\.com\/[A-Za-z0-9]+(?:\.[a-zA-Z]{3,4})?/g) || [])
+                .map(s => s.split('?')[0])
+            ));
+            if (dataSrcMatches.length) return dataSrcMatches;
+
+            const dataIdRegex = /data-(?:id|image-id|hash)=["']?([A-Za-z0-9]+)["']?/g;
+            const fallback = [];
+            while ((m = dataIdRegex.exec(html)) !== null) {
+                const hash = m[1];
+                fallback.push(`https://i.imgur.com/${hash}.jpg`);
+            }
+            if (fallback.length) return Array.from(new Set(fallback));
 
             return [];
         } catch (e) {
@@ -284,25 +296,54 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const createUploadUI = () => {
-        const uploadBtn = document.createElement('button');
-        uploadBtn.type = 'button';
-        uploadBtn.id = 'upload-files-btn';
-        uploadBtn.textContent = 'Upload files';
-        uploadBtn.style.marginRight = '8px';
+        let uploadBtn = document.getElementById('upload-files-btn');
+        if (!uploadBtn) {
+            uploadBtn = document.createElement('button');
+            uploadBtn.type = 'button';
+            uploadBtn.id = 'upload-files-btn';
+            uploadBtn.textContent = 'Upload files';
+            uploadBtn.style.marginRight = '8px';
+            downloadBtn.parentNode.insertBefore(uploadBtn, downloadBtn);
+        }
 
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.multiple = true;
-        fileInput.accept = 'text/*,image/*';
-        fileInput.style.display = 'none';
-        fileInput.id = 'import-file-input';
+        let fileInput = document.getElementById('import-file-input');
+        if (!fileInput) {
+            fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.multiple = true;
+            fileInput.accept = 'text/*,image/*';
+            fileInput.style.display = 'none';
+            fileInput.id = 'import-file-input';
+            downloadBtn.parentNode.insertBefore(fileInput, downloadBtn);
+        }
 
-        downloadBtn.parentNode.insertBefore(uploadBtn, downloadBtn);
-        downloadBtn.parentNode.insertBefore(fileInput, downloadBtn);
-
-        uploadBtn.addEventListener('click', () => fileInput.click());
+        uploadBtn.addEventListener('click', () => fileInput.click(), { passive: true });
         return fileInput;
     };
+
+    const extractUrlsFromText = (text) => {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const matches = text.match(urlRegex);
+        return matches ? matches.map(u => u.trim()) : [];
+    }
+
+    const addUrlsToTextarea = (newUrls) => {
+        if (!newUrls || newUrls.length === 0) return 0;
+        const existingUrls = new Set(urlsTextarea.value.split('\n').map(u => u.trim()).filter(Boolean));
+        let addedCount = 0;
+        newUrls.forEach(url => {
+            if (isAllowedUrl(url) && !existingUrls.has(url)) {
+                existingUrls.add(url);
+                addedCount++;
+            }
+        }
+        );
+        if (addedCount > 0) {
+            urlsTextarea.value = Array.from(existingUrls).join('\n');
+            downloadBtn.disabled = false;
+        }
+        return addedCount;
+    }
 
     const fileInput = createUploadUI();
 
