@@ -41,9 +41,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_CONCURRENT_DOWNLOADS = 6;
     const MAX_RETRIES = 2;
     const RETRY_DELAY = 1000;
+    const CORS_PROXIES = [
+        'https://api.allorigins.win/raw?url=',
+        'https://cors-anywhere.herokuapp.com/'
+    ];
 
     const blobCache = new Map();
     const pendingFetches = new Map();
+    let currentProxyIndex = 0;
 
     const getFilenameFromUrl = (url, blob) => {
         try {
@@ -71,22 +76,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const fetchPromise = (async () => {
             let lastError;
+            let corsBlocked = false;
+            let proxyIndex = 0;
             
             for (let attempt = 0; attempt <= retries; attempt++) {
                 try {
-                    const response = await fetch(url, {
+                    let fetchUrl = url;
+                    let fetchOptions = {
                         method: 'GET',
                         mode: 'cors',
                         cache: 'default',
                         credentials: 'omit',
                         signal: abortController?.signal
-                    });
+                    };
+
+                    // try with proxy if CORS was blocked
+                    if (corsBlocked && proxyIndex < CORS_PROXIES.length) {
+                        const proxy = CORS_PROXIES[proxyIndex];
+                        fetchUrl = proxy.includes('?url=') 
+                            ? proxy + encodeURIComponent(url)
+                            : proxy + url;
+                        proxyIndex++;
+                    }
+                    
+                    const response = await fetch(fetchUrl, fetchOptions);
 
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
 
                     const blob = await response.blob();
+                    
+                    // validate blob is not an error page
+                    if (blob.size === 0 || (blob.type === 'text/html' && blob.size < 5000)) {
+                        throw new Error('Received empty or HTML response (possible proxy block?)');
+                    }
+
                     const result = { blob, filename: getFilenameFromUrl(url, blob) };
                     
                     blobCache.set(url, result);
@@ -100,17 +125,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw error;
                     }
 
-                    if (error.message.includes('CORS') || error.message.includes('NetworkError')) {
-                        throw new Error(`CORS blocked: ${url}`);
-                    }
-
-                    if (attempt < retries) {
+                    const isCorsError = error.message.includes('CORS') || 
+                                       error.message.includes('NetworkError') || 
+                                       error.message.includes('Failed to fetch') ||
+                                       error.message.includes('proxy');
+                    
+                    if (isCorsError && !corsBlocked) {
+                        corsBlocked = true;
+                        if (attempt < retries && proxyIndex < CORS_PROXIES.length) {
+                            await sleep(RETRY_DELAY * Math.pow(2, attempt));
+                        } else if (attempt < retries) {
+                            await sleep(RETRY_DELAY * Math.pow(2, attempt));
+                        }
+                    } else if (attempt < retries) {
                         await sleep(RETRY_DELAY * Math.pow(2, attempt));
                     }
                 }
             }
             
             pendingFetches.delete(url);
+            console.error(`Failed to fetch ${url}: ${lastError?.message}`);
             throw lastError;
         })();
 
