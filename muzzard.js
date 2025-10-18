@@ -1,3 +1,5 @@
+import { initCracita } from './cracita.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const pageContainer = document.getElementById('page-container');
     const pages = pageContainer.querySelectorAll('section[id^="page-"]');
@@ -684,4 +686,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pendingFetches.clear();
         abortController?.abort();
     });
+
+    initCracita();
 });
