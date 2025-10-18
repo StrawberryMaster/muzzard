@@ -1,4 +1,5 @@
 import { initCracita } from './cracita.js';
+import { initSorbet } from './sorbet.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const pageContainer = document.getElementById('page-container');
@@ -688,4 +689,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     initCracita();
+    initSorbet();
 });

@@ -17,6 +17,7 @@
                 <span>the MUZZARD network:</span>
                 <a href="#" data-page="home" class="text-white underline hover:text-amber-400">Home</a>
                 <a href="#" data-page="cracita" class="text-white underline hover:text-amber-400">Cracita</a>
+                <a href="#" data-page="sorbet" class="text-white underline hover:text-amber-400">Sorbet</a>
                 <a href="#" data-page="about" class="text-white underline hover:text-amber-400">About</a>
                 <a href="#" data-page="contact" class="text-white underline hover:text-amber-400">Contact</a>
                 <a href="#" data-page="help" class="text-white underline hover:text-amber-400">FAQ</a>
@@ -46,6 +47,12 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                             </svg>
                             <a href="#" data-page="cracita" class="text-amber-400 underline hover:text-amber-300">Cracita</a>
+                        </li>
+                        <li class="flex items-center">
+                           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2 text-amber-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                             <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                           </svg>
+                            <a href="#" data-page="sorbet" class="text-amber-400 underline hover:text-amber-300">Sorbet</a>
                         </li>
                         <li class="flex items-center">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-2 text-amber-400" fill="none"
@@ -233,8 +240,59 @@
                         <p id="cracita-statusField">Ready</p>
                         <p id="cracita-statsField">Words: 0 | Chars: 0</p>
                     </div>
-
                 </section>
+
+                <!-- Sorbet -->
+                 <section id="page-sorbet" class="bg-[#fcc603] p-6 text-black font-serif border-t-4 border-black hidden">
+                    <h1 class="text-3xl font-extrabold text-red-800 font-sans" style="text-shadow: 1px 1px 0 #000">Sorbet</h1>
+                    <p class="font-bold font-sans">the high-performance text comparison tool</p>
+
+                    <!-- Stats Bar -->
+                    <div class="mt-4 mb-4 p-2 border border-black bg-[#fffde7] text-xs font-mono flex flex-wrap justify-between items-center gap-4">
+                        <div id="sorbet-performanceStats" class="px-2 py-1 bg-gray-700 text-amber-300 rounded">Ready</div>
+                        <div class="flex gap-4">
+                            <div id="sorbet-addedStats" class="px-2 py-1 bg-green-800 text-green-200 rounded">0 added</div>
+                            <div id="sorbet-removedStats" class="px-2 py-1 bg-red-800 text-red-200 rounded">0 removed</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Main content -->
+                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="sorbet-text1" class="font-bold font-sans text-sm flex justify-between">Original Text <span id="sorbet-file1Info" class="text-gray-700"></span></label>
+                            <textarea id="sorbet-text1" placeholder="Paste original text here..." class="w-full h-96 p-2 mt-1 border-2 border-black bg-[#fffde7] text-black font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-700 resize-y"></textarea>
+                        </div>
+                        <div>
+                            <label for="sorbet-text2" class="font-bold font-sans text-sm flex justify-between">Modified Text <span id="sorbet-file2Info" class="text-gray-700"></span></label>
+                            <textarea id="sorbet-text2" placeholder="Paste modified text here..." class="w-full h-96 p-2 mt-1 border-2 border-black bg-[#fffde7] text-black font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-700 resize-y"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Diff panel -->
+                    <div id="sorbet-diffPanel" class="hidden">
+                         <label class="font-bold font-sans text-sm">Differences</label>
+                         <div id="sorbet-diffViewport" class="w-full h-96 mt-1 p-2 border-2 border-black bg-[#fffde7] font-mono text-xs overflow-auto">
+                            <div id="sorbet-diffContent"></div>
+                         </div>
+                    </div>
+
+                    <!-- Control bar -->
+                    <div class="mt-4 flex flex-wrap items-center gap-4">
+                        <button id="sorbet-compareBtn" class="px-6 py-2 bg-red-800 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-red-900 disabled:opacity-50 transition-colors">Compare</button>
+                        <button id="sorbet-swapBtn" class="px-4 py-2 bg-blue-800 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-blue-900 transition-colors">Swap</button>
+                        <button id="sorbet-clearBtn" class="px-4 py-2 bg-gray-700 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-gray-800 transition-colors">Clear</button>
+                    </div>
+                </section>
+
+                <!-- Loading overlay for sorbet -->
+                <div id="sorbet-loadingOverlay" class="fixed inset-0 bg-black bg-opacity-75 items-center justify-center z-50 hidden">
+                    <div class="bg-yellow-100 p-6 border-4 border-black text-center font-sans">
+                        <div id="sorbet-loadingText" class="text-lg font-bold mb-4">Processing...</div>
+                        <div class="w-64 h-4 bg-gray-300 border-2 border-black">
+                            <div id="sorbet-progressBar" class="h-full bg-red-700" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
 
                 <section id="page-contact"
                     class="bg-[#fcc603] p-6 text-black font-serif border-t-4 border-black hidden">
