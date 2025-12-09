@@ -1,82 +1,84 @@
 export function initCracita() {
     const cracitaPage = document.getElementById('page-cracita');
-    if (!cracitaPage) {
-        return;
-    }
+    if (!cracitaPage) return;
 
-    const inputText = document.getElementById('cracita-inputText');
-    const outputText = document.getElementById('cracita-outputText');
-    const loadBtn = document.getElementById('cracita-loadBtn');
-    const saveBtn = document.getElementById('cracita-saveBtn');
-    const copyBtn = document.getElementById('cracita-copyBtn');
-    const fileInput = document.getElementById('cracita-fileInput');
-    const statusField = document.getElementById('cracita-statusField');
-    const statsField = document.getElementById('cracita-statsField');
-    const modeSelect = document.getElementById('cracita-mode-select');
-    const regexControls = document.getElementById('cracita-regex-controls');
-    const regexInput = document.getElementById('cracita-regex-input');
+    const els = {
+        input: document.getElementById('cracita-inputText'),
+        output: document.getElementById('cracita-outputText'),
+        loadBtn: document.getElementById('cracita-loadBtn'),
+        saveBtn: document.getElementById('cracita-saveBtn'),
+        copyBtn: document.getElementById('cracita-copyBtn'),
+        fileInput: document.getElementById('cracita-fileInput'),
+        status: document.getElementById('cracita-statusField'),
+        stats: document.getElementById('cracita-statsField'),
+        mode: document.getElementById('cracita-mode-select'),
+        regexControls: document.getElementById('cracita-regex-controls'),
+        regexInput: document.getElementById('cracita-regex-input')
+    };
 
     let conversionTimer = null;
 
     const applyTypographicRules = (text) => {
         if (!text) return "";
-        let newText = text.replace(/--/g, '—').replace(/\.\.\./g, '…');
-        newText = newText.replace(/(^|\W)'/g, '$1‘');
-        newText = newText.replace(/'/g, '’');
-        const lines = newText.split('\n');
-        const processedLines = lines.map(line => {
-            let isDoubleOpen = true;
-            return line.replace(/[“”"]/g, () => {
-                const quote = isDoubleOpen ? '“' : '”';
-                isDoubleOpen = !isDoubleOpen;
-                return quote;
-            });
-        });
-        return processedLines.join('\n');
+
+        return text
+            .replace(/---/g, '—')
+            .replace(/--/g, '—')
+            .replace(/\.\.\./g, '…')
+
+            .replace(/((?:^|[\s(\[{]))"/g, '$1“')
+            .replace(/"/g, '”')
+
+            .replace(/'(?=\d{2}s)/g, '’')
+
+            .replace(/((?:^|[\s(\[{]))'/g, '$1‘')
+            .replace(/'/g, '’');
     };
-    
+
     const performConversion = () => {
-        const mode = modeSelect.value;
-        const input = inputText.value;
+        const mode = els.mode.value;
+        const input = els.input.value;
         let output = "";
 
         if (mode === 'Normal') {
             output = applyTypographicRules(input);
-            statusField.textContent = "Auto-converted";
+            els.status.textContent = "Auto-converted";
         } else if (mode === 'Regex') {
-            if (!regexInput.value) {
-                outputText.value = input;
-                statusField.textContent = "Ready for regex pattern...";
+            if (!els.regexInput.value) {
+                els.output.value = input;
+                els.status.textContent = "Waiting for pattern...";
                 return;
             }
             try {
-                const regex = new RegExp(regexInput.value, 'gs');
-                output = input.replace(regex, (match, ...groups) => {
-                    const captures = groups.slice(0, -2);
-                    if (captures.length > 1) {
+                const regex = new RegExp(els.regexInput.value, 'gs');
+
+                output = input.replace(regex, (match, ...args) => {
+                    const captures = args.slice(0, -2);
+
+                    if (captures.length >= 2) {
                         const pre = captures[0] || '';
                         const content = captures[1] || '';
                         const post = captures.slice(2).join('');
-                        const convertedContent = applyTypographicRules(content);
-                        return `${pre}${convertedContent}${post}`;
+
+                        return `${pre}${applyTypographicRules(content)}${post}`;
                     }
                     return match;
                 });
-                statusField.textContent = "Targeted conversion complete.";
+                els.status.textContent = "Targeted conversion complete.";
             } catch (e) {
-                output = `Regex Error: ${e.message}\n\n${input}`;
-                statusField.textContent = "Zoinks! Error in regex pattern.";
+                output = input;
+                els.status.textContent = `Regex error: ${e.message}`;
             }
         }
-        
-        outputText.value = output;
-        localStorage.setItem('cracita-text', inputText.value);
+
+        els.output.value = output;
+        localStorage.setItem('cracita-text', els.input.value);
     };
 
     const updateStats = () => {
-        const text = inputText.value;
+        const text = els.input.value;
         const wordCount = (text.match(/\b[\w'-]+\b/gu) || []).length;
-        statsField.textContent = `Words: ${wordCount} | Chars: ${text.length}`;
+        els.stats.textContent = `Words: ${wordCount} | Chars: ${text.length}`;
     };
 
     const onTextChange = () => {
@@ -87,75 +89,65 @@ export function initCracita() {
         }, 300);
     };
 
-    modeSelect.addEventListener('change', () => {
-        if (modeSelect.value === 'Regex') {
-            regexControls.classList.remove('hidden');
-            regexControls.classList.add('flex');
-            if (!regexInput.value) {
-                regexInput.value = '("description":\\s*")(.+?)(")';
-            }
-        } else {
-            regexControls.classList.add('hidden');
-            regexControls.classList.remove('flex');
+    els.mode.addEventListener('change', () => {
+        const isRegex = els.mode.value === 'Regex';
+        els.regexControls.classList.toggle('hidden', !isRegex);
+        els.regexControls.classList.toggle('flex', isRegex);
+
+        if (isRegex && !els.regexInput.value) {
+            els.regexInput.value = '("description":\\s*")(.+?)(")';
         }
         performConversion();
     });
 
-    regexInput.addEventListener('input', onTextChange);
+    els.regexInput.addEventListener('input', onTextChange);
+    els.input.addEventListener('input', onTextChange);
 
-    const loadFile = () => fileInput.click();
-    const saveFile = () => {
-        const textToSave = outputText.value;
-        const blob = new Blob([textToSave], { type: "text/plain" });
-        saveAs(blob, "converted_text.txt");
-        statusField.textContent = "File saved successfully.";
-    };
-    const copyToClipboard = () => {
-        if (!outputText.value) {
-            statusField.textContent = "Nothing to copy.";
-            return;
-        }
-        navigator.clipboard.writeText(outputText.value).then(() => {
-            statusField.textContent = "Output copied to clipboard!";
-        });
-    };
-    
-    const handleFileSelect = (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            inputText.value = e.target.result;
-            onTextChange();
-            statusField.textContent = `Loaded: ${file.name}`;
-        };
-        reader.readAsText(file);
-    };
+    els.loadBtn.addEventListener('click', () => els.fileInput.click());
 
-    const loadSettings = () => {
-        const savedText = localStorage.getItem('cracita-text') || '';
-        if (savedText) {
-            inputText.value = savedText;
-            onTextChange();
-        }
-    };
-
-    inputText.addEventListener('input', onTextChange);
-    loadBtn.addEventListener('click', loadFile);
-    saveBtn.addEventListener('click', saveFile);
-    copyBtn.addEventListener('click', copyToClipboard);
-    fileInput.addEventListener('change', handleFileSelect);
-
-    document.addEventListener('keydown', (e) => {
-        if (cracitaPage.classList.contains('hidden')) return;
-        if (e.ctrlKey) {
-            switch (e.key.toLowerCase()) {
-                case 'o': e.preventDefault(); loadFile(); break;
-                case 's': e.preventDefault(); saveFile(); break;
-                case 'c': e.preventDefault(); copyToClipboard(); break;
-            }
+    els.saveBtn.addEventListener('click', () => {
+        const blob = new Blob([els.output.value], { type: "text/plain" });
+        if (typeof saveAs !== 'undefined') {
+            saveAs(blob, "converted_text.txt");
+            els.status.textContent = "File saved.";
+        } else {
+            console.error("FileSaver.js (saveAs) is missing.");
+            els.status.textContent = "Error: Save dependency missing.";
         }
     });
 
-    loadSettings();
+    els.copyBtn.addEventListener('click', () => {
+        if (!els.output.value) return;
+        navigator.clipboard.writeText(els.output.value)
+            .then(() => els.status.textContent = "Copied to clipboard!")
+            .catch(() => els.status.textContent = "Copy failed.");
+    });
+
+    els.fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            els.input.value = ev.target.result;
+            onTextChange();
+            els.status.textContent = `Loaded: ${file.name}`;
+            els.fileInput.value = '';
+        };
+        reader.readAsText(file);
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (cracitaPage.classList.contains('hidden')) return;
+        if ((e.ctrlKey || e.metaKey) && ['s', 'o', 'c'].includes(e.key.toLowerCase())) {
+            e.preventDefault();
+            if (e.key.toLowerCase() === 's') els.saveBtn.click();
+            if (e.key.toLowerCase() === 'o') els.loadBtn.click();
+        }
+    });
+
+    const savedText = localStorage.getItem('cracita-text');
+    if (savedText) {
+        els.input.value = savedText;
+        onTextChange();
+    }
 }
