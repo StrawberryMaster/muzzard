@@ -26,12 +26,12 @@ export function initCracita() {
             .replace(/--/g, '—')
             .replace(/\.\.\./g, '…')
 
-            .replace(/((?:^|[\s(\[{]))"/g, '$1“')
+            .replace(/((?:^|[\s(\[{>]))"/g, '$1“')
             .replace(/"/g, '”')
 
             .replace(/'(?=\d{2}s)/g, '’')
-
-            .replace(/((?:^|[\s(\[{]))'/g, '$1‘')
+            
+            .replace(/((?:^|[\s(\[{>]))'/g, '$1‘')
             .replace(/'/g, '’');
     };
 
