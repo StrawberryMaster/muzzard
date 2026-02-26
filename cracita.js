@@ -1,22 +1,23 @@
+import { byId, createStatusSetter, debounce } from './utils.js';
+
 export function initCracita() {
-    const cracitaPage = document.getElementById('page-cracita');
+    const cracitaPage = byId('page-cracita');
     if (!cracitaPage) return;
 
     const els = {
-        input: document.getElementById('cracita-inputText'),
-        output: document.getElementById('cracita-outputText'),
-        loadBtn: document.getElementById('cracita-loadBtn'),
-        saveBtn: document.getElementById('cracita-saveBtn'),
-        copyBtn: document.getElementById('cracita-copyBtn'),
-        fileInput: document.getElementById('cracita-fileInput'),
-        status: document.getElementById('cracita-statusField'),
-        stats: document.getElementById('cracita-statsField'),
-        mode: document.getElementById('cracita-mode-select'),
-        regexControls: document.getElementById('cracita-regex-controls'),
-        regexInput: document.getElementById('cracita-regex-input')
+        input: byId('cracita-inputText'),
+        output: byId('cracita-outputText'),
+        loadBtn: byId('cracita-loadBtn'),
+        saveBtn: byId('cracita-saveBtn'),
+        copyBtn: byId('cracita-copyBtn'),
+        fileInput: byId('cracita-fileInput'),
+        status: byId('cracita-statusField'),
+        stats: byId('cracita-statsField'),
+        mode: byId('cracita-mode-select'),
+        regexControls: byId('cracita-regex-controls'),
+        regexInput: byId('cracita-regex-input')
     };
-
-    let conversionTimer = null;
+    const setStatus = createStatusSetter(els.status);
 
     const applyTypographicRules = (text) => {
         if (!text) return "";
@@ -42,11 +43,11 @@ export function initCracita() {
 
         if (mode === 'Normal') {
             output = applyTypographicRules(input);
-            els.status.textContent = "Auto-converted";
+            setStatus("Auto-converted");
         } else if (mode === 'Regex') {
             if (!els.regexInput.value) {
                 els.output.value = input;
-                els.status.textContent = "Waiting for pattern...";
+                setStatus("Waiting for pattern...");
                 return;
             }
             try {
@@ -64,10 +65,10 @@ export function initCracita() {
                     }
                     return match;
                 });
-                els.status.textContent = "Targeted conversion complete.";
+                setStatus("Targeted conversion complete.");
             } catch (e) {
                 output = input;
-                els.status.textContent = `Regex error: ${e.message}`;
+                setStatus(`Regex error: ${e.message}`);
             }
         }
 
@@ -81,13 +82,10 @@ export function initCracita() {
         els.stats.textContent = `Words: ${wordCount} | Chars: ${text.length}`;
     };
 
-    const onTextChange = () => {
-        clearTimeout(conversionTimer);
-        conversionTimer = setTimeout(() => {
-            performConversion();
-            updateStats();
-        }, 300);
-    };
+    const onTextChange = debounce(() => {
+        performConversion();
+        updateStats();
+    }, 300);
 
     els.mode.addEventListener('change', () => {
         const isRegex = els.mode.value === 'Regex';
@@ -109,18 +107,18 @@ export function initCracita() {
         const blob = new Blob([els.output.value], { type: "text/plain" });
         if (typeof saveAs !== 'undefined') {
             saveAs(blob, "converted_text.txt");
-            els.status.textContent = "File saved.";
+            setStatus("File saved.");
         } else {
             console.error("FileSaver.js (saveAs) is missing.");
-            els.status.textContent = "Error: Save dependency missing.";
+            setStatus("Error: Save dependency missing.");
         }
     });
 
     els.copyBtn.addEventListener('click', () => {
         if (!els.output.value) return;
         navigator.clipboard.writeText(els.output.value)
-            .then(() => els.status.textContent = "Copied to clipboard!")
-            .catch(() => els.status.textContent = "Copy failed.");
+            .then(() => setStatus("Copied to clipboard!"))
+            .catch(() => setStatus("Copy failed."));
     });
 
     els.fileInput.addEventListener('change', (e) => {
@@ -130,7 +128,7 @@ export function initCracita() {
         reader.onload = (ev) => {
             els.input.value = ev.target.result;
             onTextChange();
-            els.status.textContent = `Loaded: ${file.name}`;
+            setStatus(`Loaded: ${file.name}`);
             els.fileInput.value = '';
         };
         reader.readAsText(file);

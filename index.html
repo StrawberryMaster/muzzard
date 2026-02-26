@@ -86,7 +86,7 @@
 
                     <div class="space-y-4 text-sm leading-relaxed">
                         <p>
-                            This is <i>muzzard</i>, an utility for downloading images. Paste your direct
+                            This is <i>muzzard</i>, an utility for downloading files in general, including images. Paste your direct
                             image URLs into the box below (one per line), hit the button, and let it run.
                         </p>
 
@@ -94,28 +94,32 @@
                             placeholder="e.g. https://i.imgur.com/foobar.jpeg&#10;https://i.imgur.com/example.png"
                             class="w-full h-48 p-2 border-2 border-black bg-[#fffde7] text-black font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-700"></textarea>
 
-                        <div class="flex items-center space-x-6">
-                            <button id="download-btn"
-                                class="px-6 py-2 bg-red-800 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-red-900 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
-                                Muzzard it
-                            </button>
-                            <button id="upload-files-btn"
-                                class="px-6 py-2 bg-blue-800 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-blue-900 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
-                                Upload files
-                            </button>
-                            <div id="import-text-box" class="flex flex-col items-stretch space-y-2">
-                                <textarea id="import-textarea" rows="2" placeholder="Paste text containing links here"
-                                    class="w-56 p-2 border-2 border-black bg-[#fffde7] text-black font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-700 resize-y"></textarea>
-                                <button type="button" id="import-text-btn"
-                                    class="px-2 py-1 bg-yellow-700 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-yellow-800 transition-colors">
-                                    Paste file/text
+                        <div class="flex flex-col space-y-4">
+                            <div class="flex flex-wrap items-center gap-4">
+                                <button id="download-btn"
+                                    class="px-6 py-2 bg-red-800 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-red-900 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
+                                    Muzzard it
                                 </button>
+                                <button id="upload-files-btn"
+                                    class="px-6 py-2 bg-blue-800 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-blue-900 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors">
+                                    Upload files
+                                </button>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" id="zip-checkbox"
+                                        class="h-4 w-4 border-2 border-black bg-[#fffde7] text-red-800 focus:ring-red-700">
+                                    <span class="ml-2 text-sm font-bold font-sans">Save as ZIP?</span>
+                                </label>
                             </div>
-                            <div class="flex items-center">
-                                <input type="checkbox" id="zip-checkbox"
-                                    class="h-4 w-4 border-2 border-black bg-[#fffde7] text-red-800 focus:ring-red-700">
-                                <label for="zip-checkbox" class="ml-2 text-sm font-bold font-sans">Save as
-                                    ZIP?</label>
+                            <div>
+                                <label for="import-textarea" class="block text-xs font-bold font-sans mb-2">Or paste links/text:</label>
+                                <div class="flex gap-2">
+                                    <textarea id="import-textarea" rows="2" placeholder="Paste text containing links here"
+                                        class="flex-1 p-2 border-2 border-black bg-[#fffde7] text-black font-mono text-xs focus:outline-none focus:ring-2 focus:ring-red-700 resize-y"></textarea>
+                                    <button type="button" id="import-text-btn"
+                                        class="px-4 py-2 bg-yellow-700 text-white font-bold font-sans uppercase tracking-wider border-2 border-black hover:bg-yellow-800 transition-colors whitespace-nowrap">
+                                        Import
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -125,7 +129,7 @@
                                 line.</p>
                         </div>
                         <p class="text-xs italic">
-                            Note: muzzard works best with direct image links (e.g., Imgur direct links). It may not
+                            Note: muzzard works best with direct image links (e.g., https://i.imgur.com/example.jpeg). It may not
                             work with all sites due to CORS or hotlink protection.
                         </p>
                     </div>
@@ -135,8 +139,8 @@
                     <h1 class="text-3xl font-extrabold text-red-800 font-sans" style="text-shadow: 1px 1px 0 #000">About
                         Muzzard</h1>
                     <div class="space-y-4 text-sm leading-relaxed">
-                        <p>There's not really much to say about muzzard. It's a simple tool with one
-                            purpose: to download images from the web quickly and without fuss. But like any good tool,
+                        <p>There's not really much to say about muzzard. This is a simple tool with one
+                            purpose: to download files from a source quickly and without much fuss. But like any good tool,
                             it's got a bit of personality.</p>
                         <p>This site's design is a homage to Hunter S. Thompson's "Hey, Rube!" column on ESPN's
                             Page 2, and also to the at times eccentric web design of the 2000s.</p>
@@ -152,7 +156,7 @@
                             style="text-shadow: 1px 1px 0 #000">How to use Muzzard</h2>
                         <p>It's simple, by design. I think.</p>
                         <ol class="list-decimal list-inside space-y-2 pl-4">
-                            <li>Find the direct URL to an image you want to download. This usually ends in .jpg, .png,
+                            <li>Find the direct URL to a file you want to download. This usually ends in .jpg, .png,
                                 .gif, etc.</li>
                             <li>Paste the URL into the big text box on the homepage.</li>
                             <li>If you have more than one, paste each URL on a new line.</li>

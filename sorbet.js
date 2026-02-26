@@ -1,23 +1,25 @@
+import { byId, debounce, throttle } from './utils.js';
+
 export function initSorbet() {
-    const sorbetPage = document.getElementById('page-sorbet');
+    const sorbetPage = byId('page-sorbet');
     if (!sorbetPage) return;
 
-    const text1El = document.getElementById('sorbet-text1');
-    const text2El = document.getElementById('sorbet-text2');
-    const file1InfoEl = document.getElementById('sorbet-file1Info');
-    const file2InfoEl = document.getElementById('sorbet-file2Info');
-    const diffPanelEl = document.getElementById('sorbet-diffPanel');
-    const diffViewportEl = document.getElementById('sorbet-diffViewport');
-    const diffContentEl = document.getElementById('sorbet-diffContent');
-    const compareBtn = document.getElementById('sorbet-compareBtn');
-    const swapBtn = document.getElementById('sorbet-swapBtn');
-    const clearBtn = document.getElementById('sorbet-clearBtn');
-    const perfStatsEl = document.getElementById('sorbet-performanceStats');
-    const addedStatsEl = document.getElementById('sorbet-addedStats');
-    const removedStatsEl = document.getElementById('sorbet-removedStats');
-    const loadingOverlayEl = document.getElementById('sorbet-loadingOverlay');
-    const loadingTextEl = document.getElementById('sorbet-loadingText');
-    const progressBarEl = document.getElementById('sorbet-progressBar');
+    const text1El = byId('sorbet-text1');
+    const text2El = byId('sorbet-text2');
+    const file1InfoEl = byId('sorbet-file1Info');
+    const file2InfoEl = byId('sorbet-file2Info');
+    const diffPanelEl = byId('sorbet-diffPanel');
+    const diffViewportEl = byId('sorbet-diffViewport');
+    const diffContentEl = byId('sorbet-diffContent');
+    const compareBtn = byId('sorbet-compareBtn');
+    const swapBtn = byId('sorbet-swapBtn');
+    const clearBtn = byId('sorbet-clearBtn');
+    const perfStatsEl = byId('sorbet-performanceStats');
+    const addedStatsEl = byId('sorbet-addedStats');
+    const removedStatsEl = byId('sorbet-removedStats');
+    const loadingOverlayEl = byId('sorbet-loadingOverlay');
+    const loadingTextEl = byId('sorbet-loadingText');
+    const progressBarEl = byId('sorbet-progressBar');
 
     const workerCode = `
         class OptimizedDiff {
@@ -207,7 +209,7 @@ export function initSorbet() {
             this.visibleRange = { start: 0, end: 50 };
             this.diffData = [];
             this.renderBuffer = 20;
-            this.viewport.addEventListener('scroll', this.throttle(this.render.bind(this), 16));
+            this.viewport.addEventListener('scroll', throttle(this.render.bind(this), 16));
         }
         setDiff(diff) {
             this.diffData = diff;
@@ -269,17 +271,6 @@ export function initSorbet() {
             lineDiv.appendChild(numberSpan);
             lineDiv.appendChild(contentSpan);
             return lineDiv;
-        }
-        throttle(func, delay) {
-            let inProgress = false;
-            return (...args) => {
-                if (inProgress) return;
-                inProgress = true;
-                setTimeout(() => {
-                    func(...args);
-                    inProgress = false;
-                }, delay);
-            };
         }
     }
     const virtualRenderer = new VirtualRenderer(diffContentEl, diffViewportEl);
@@ -347,14 +338,6 @@ export function initSorbet() {
         addedStatsEl.textContent = '0 added';
         removedStatsEl.textContent = '0 removed';
         updateFileInfo();
-    }
-
-    function debounce(func, wait) {
-        let timeout;
-        return (...args) => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), wait);
-        };
     }
 
     compareBtn.addEventListener('click', startComparison);
