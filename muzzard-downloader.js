@@ -16,6 +16,7 @@ export function initMuzzardDownloader() {
     const MAX_CONCURRENT_DOWNLOADS = 6;
     const MAX_RETRIES = 2;
     const RETRY_DELAY = 1000;
+    const ZIP_AUTO_ENABLE_THRESHOLD = 3;
     const CORS_PROXIES = [
         'https://api.allorigins.win/raw?url=',
         'https://cors-anywhere.herokuapp.com/'
@@ -23,6 +24,21 @@ export function initMuzzardDownloader() {
 
     const blobCache = new Map();
     const pendingFetches = new Map();
+    let hasManualZipPreference = false;
+
+    const getCurrentUrlCount = () => {
+        const urls = urlsTextarea.value
+            .split('\n')
+            .map(url => url.trim())
+            .filter(Boolean);
+
+        return new Set(urls).size;
+    };
+
+    const applyZipDefault = () => {
+        if (hasManualZipPreference) return;
+        zipCheckbox.checked = getCurrentUrlCount() >= ZIP_AUTO_ENABLE_THRESHOLD;
+    };
 
     const getFilenameFromUrl = (url, blob) => {
         try {
@@ -453,6 +469,8 @@ export function initMuzzardDownloader() {
             urlsTextarea.disabled = false;
             downloadBtn.textContent = 'Muzzard It';
             urlsTextarea.value = '';
+            hasManualZipPreference = false;
+            applyZipDefault();
             abortController = null;
         }
     };
@@ -566,6 +584,8 @@ export function initMuzzardDownloader() {
             urlsTextarea.value = Array.from(existingUrls).join('\n');
             downloadBtn.disabled = false;
         }
+
+        applyZipDefault();
         return addedCount;
     };
 
@@ -642,14 +662,19 @@ export function initMuzzardDownloader() {
     }, { passive: true });
 
     downloadBtn.addEventListener('click', handleDownload);
+    zipCheckbox.addEventListener('change', () => {
+        hasManualZipPreference = true;
+    }, { passive: true });
 
     const syncDownloadButtonState = debounce(() => {
         downloadBtn.disabled = !urlsTextarea.value.trim() || isLoading;
+        applyZipDefault();
     }, 150);
 
     urlsTextarea.addEventListener('input', syncDownloadButtonState, { passive: true });
 
     downloadBtn.disabled = !urlsTextarea.value.trim();
+    applyZipDefault();
 
     window.addEventListener('beforeunload', () => {
         blobCache.clear();
