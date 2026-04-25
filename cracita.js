@@ -29,6 +29,17 @@ export function initCracita() {
         return null;
     };
 
+    const hasLaterQuote = (value, startIndex, family) => {
+        for (let index = startIndex; index < value.length; index += 1) {
+            const quoteFamily = getQuoteFamily(value[index]);
+            if (quoteFamily === family) {
+                return true;
+            }
+        }
+
+        return false;
+    };
+
     const htmlParser = typeof DOMParser !== 'undefined' ? new DOMParser() : null;
     const preservedHtmlTags = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'PRE', 'CODE']);
     const textNodeFilter = typeof NodeFilter !== 'undefined' ? NodeFilter.SHOW_TEXT : 4;
@@ -68,7 +79,17 @@ export function initCracita() {
                     }
 
                     if (family === 'single' && isQuoteBoundary(previousCharacter) && isLowercaseLetter(nextCharacter)) {
-                        result += '’';
+                        const looksLikeOpeningQuote = hasLaterQuote(value, index, family);
+
+                        if (looksLikeOpeningQuote) {
+                            const opensQuote = !quoteState.insideSingleQuote;
+
+                            result += opensQuote ? '‘' : '’';
+                            quoteState.insideSingleQuote = opensQuote;
+                        } else {
+                            result += '’';
+                        }
+
                         continue;
                     }
 
@@ -212,8 +233,16 @@ export function initCracita() {
 
     els.copyBtn.addEventListener('click', () => {
         if (!els.output.value) return;
+        const originalLabel = els.copyBtn.textContent;
+
         navigator.clipboard.writeText(els.output.value)
-            .then(() => setStatus("Copied to clipboard!"))
+            .then(() => {
+                setStatus("Copied to clipboard!");
+                els.copyBtn.textContent = "Copied!";
+                window.setTimeout(() => {
+                    els.copyBtn.textContent = originalLabel;
+                }, 1200);
+            })
             .catch(() => setStatus("Copy failed."));
     });
 
