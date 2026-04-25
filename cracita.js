@@ -19,21 +19,117 @@ export function initCracita() {
     };
     const setStatus = createStatusSetter(els.status);
 
-    const applyTypographicRules = (text) => {
-        if (!text) return "";
+    const isQuoteBoundary = (character) => character === '' || /[\s([\{<:;!?—–-]/.test(character);
+    const isWordCharacter = (character) => /[\p{L}\p{N}]/u.test(character);
+    const isLowercaseLetter = (character) => /\p{Ll}/u.test(character);
 
-        return text
-            .replace(/---/g, '—')
-            .replace(/--/g, '—')
-            .replace(/\.\.\./g, '…')
+    const getQuoteFamily = (character) => {
+        if (character === '"' || character === '“' || character === '”') return 'double';
+        if (character === "'" || character === '‘' || character === '’') return 'single';
+        return null;
+    };
 
-            .replace(/((?:^|[\s(\[{>]))"/g, '$1“')
-            .replace(/"/g, '”')
+    const htmlParser = typeof DOMParser !== 'undefined' ? new DOMParser() : null;
+    const preservedHtmlTags = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'PRE', 'CODE']);
+    const textNodeFilter = typeof NodeFilter !== 'undefined' ? NodeFilter.SHOW_TEXT : 4;
 
-            .replace(/'(?=\d{2}s)/g, '’')
-            
-            .replace(/((?:^|[\s(\[{>]))'/g, '$1‘')
-            .replace(/'/g, '’');
+    const createTypographicTransformer = () => {
+        const quoteState = {
+            insideDoubleQuote: false,
+            insideSingleQuote: false
+        };
+
+        return (text) => {
+            if (!text) return "";
+
+            const normalizeSmartQuotes = (value) => {
+                let result = "";
+
+                for (let index = 0; index < value.length;) {
+                    const character = value[index];
+                    const family = getQuoteFamily(character);
+
+                    if (!family) {
+                        result += character;
+                        index += 1;
+                        continue;
+                    }
+
+                    while (index < value.length && getQuoteFamily(value[index]) === family) {
+                        index += 1;
+                    }
+
+                    const previousCharacter = result[result.length - 1] || '';
+                    const nextCharacter = value[index] || '';
+
+                    if (family === 'single' && isWordCharacter(previousCharacter) && isWordCharacter(nextCharacter)) {
+                        result += '’';
+                        continue;
+                    }
+
+                    if (family === 'single' && isQuoteBoundary(previousCharacter) && isLowercaseLetter(nextCharacter)) {
+                        result += '’';
+                        continue;
+                    }
+
+                    if (family === 'single') {
+                        const opensQuote = !quoteState.insideSingleQuote && isQuoteBoundary(previousCharacter);
+
+                        result += opensQuote ? '‘' : '’';
+                        quoteState.insideSingleQuote = opensQuote;
+                        continue;
+                    }
+
+                    const opensQuote = !quoteState.insideDoubleQuote && isQuoteBoundary(previousCharacter);
+
+                    result += opensQuote ? '“' : '”';
+                    quoteState.insideDoubleQuote = opensQuote;
+                }
+
+                return result;
+            };
+
+            return normalizeSmartQuotes(text)
+                .replace(/---/g, '—')
+                .replace(/--/g, '—')
+                .replace(/\.\.\./g, '…')
+                .replace(/'(?=\d{2}s)/g, '’')
+                .replace(/((?:^|[\s(\[{>]))'/g, '$1‘')
+                .replace(/'/g, '’');
+        };
+    };
+
+    const applyTypographicRules = (text) => createTypographicTransformer()(text);
+
+    const applyTypographicRulesToHtml = (html) => {
+        if (!htmlParser) return applyTypographicRules(html);
+        const quoteTransformer = createTypographicTransformer();
+
+        const document = htmlParser.parseFromString(html, 'text/html');
+        const walker = document.createTreeWalker(document.body, textNodeFilter);
+        const textNodes = [];
+
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            const parentTagName = node.parentElement?.tagName;
+
+            if (parentTagName && preservedHtmlTags.has(parentTagName)) {
+                continue;
+            }
+
+            textNodes.push(node);
+        }
+
+        for (const node of textNodes) {
+            node.textContent = quoteTransformer(node.textContent || '');
+        }
+
+        return document.body.innerHTML;
+    };
+
+    const convertText = (text) => {
+        const looksLikeHtml = /<\/?[a-z][\s\S]*>/i.test(text);
+        return looksLikeHtml ? applyTypographicRulesToHtml(text) : applyTypographicRules(text);
     };
 
     const performConversion = () => {
@@ -42,7 +138,7 @@ export function initCracita() {
         let output = "";
 
         if (mode === 'Normal') {
-            output = applyTypographicRules(input);
+            output = convertText(input);
             setStatus("Auto-converted");
         } else if (mode === 'Regex') {
             if (!els.regexInput.value) {
@@ -61,7 +157,7 @@ export function initCracita() {
                         const content = captures[1] || '';
                         const post = captures.slice(2).join('');
 
-                        return `${pre}${applyTypographicRules(content)}${post}`;
+                        return `${pre}${convertText(content)}${post}`;
                     }
                     return match;
                 });
